@@ -7,13 +7,18 @@
 import numpy as np
 import time
 from tspy import TSP #TSP solver package
+from tspy.solvers.utils import get_cost
+
+
 
 #-------------------------------CLASS DEFINITIONS-------------------------------
 #Each reagent stands for a subest of wells which it is added to
+#FOR LEASTOUT: number of outgoing edges is outgoing
 class Ss:
     def __init__(self, reag, wellno): #initialisation
         self.reag=reag
         self.wells=[wellno]
+        self.outgoing=0
         
     def nuwell(self, wellno): #record new well in the subset
         self.wells.append(wellno)
@@ -48,6 +53,7 @@ w=[['p1', 'r2', 'c4', 't2'],
 def main():
     subsets=[] #array of all subsets (class Ss variables for all)
     fin=[] #final array where the operations are to be recorded
+    tipchanges=0 #counts the total number of tip changes
     
     #initialise the matrix of distances, i.e. our graph of wells
     D=np.zeros((len(w),len(w)))
@@ -55,14 +61,16 @@ def main():
     #from the given list, fill the subsets array and initialise D
     convert(w,subsets)
     
+    tipchanges=len(subsets)-1 #anyhow, we have to change the tip between the different reagents
+    
     #print subsets and D (TEST ONLY)
     disp(subsets, D)
     
     #reorder the subsets || currently: in random order
-    randreorder(subsets)
+    leastout(subsets,len(w))
     
     #print subsets and D (TEST ONLY)
-    #disp(subsets, D)
+    disp(subsets, D)
     
     """
     #TEST ONLY
@@ -76,9 +84,10 @@ def main():
     """
     #implement the algorithm
     for i in range(0,len(subsets)):
-        singlesub(subsets[i],D,fin)
+        tipchanges=singlesub(subsets[i],D,fin,tipchanges)
         
-    dispoper(fin)  
+    dispoper(fin)
+    print('The total number of pipette tip changhes is '+str(tipchanges))
     
 #-------------------------------FUNCTIONS-------------------------------  
 def convert(w, subsets):  
@@ -116,9 +125,19 @@ def randreorder(subsets):  #randomly reshuffle using default seed
     
 def randtimereorder(subsets):  #randomly reshuffle using time as seed
     np.random.RandomState(seed=round(time.time())).shuffle(subsets)
+
+def leastout(subsets,totalwells):
+    #determine the number of outgoing edges for each subset
+    for i in range(0,len(subsets)):
+        subsets[i].outgoing=len(subsets[i].wells)*(totalwells-len(subsets[i].wells))
+    
+    #sort the list
+    subsets.sort(key=lambda subsets: subsets.outgoing)
+        
     
 #-------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
-def singlesub(subset,D,fin):
+#and return the number of tip changes
+def singlesub(subset,D,fin,tipchanges):
     #PART 1: initial preparations
     #initialise the subset's matrix subD
     subD=np.zeros((len(subset.wells)+1,len(subset.wells)+1)) #vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
@@ -152,7 +171,7 @@ def singlesub(subset,D,fin):
     from tspy.solvers import TwoOpt_solver
     two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
     tour = tsp.get_approx_solution(two_opt)
-    print(tour)
+    #print(tour)
     
     #PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
     #find the position of the zero node in the tour
@@ -169,6 +188,9 @@ def singlesub(subset,D,fin):
     while(tour[i]!=0):
         fin.append(Oper(subset.reag,subset.wells[tour[i]-1]))
         i+=1
+    
+    #PART 5: return the adjusted number of pipette tip changes
+    return tipchanges+get_cost(tour,tsp) #include the tour cost in the number of tip changes
             
 #-------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
