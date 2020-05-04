@@ -48,12 +48,15 @@ w=[['p1', 'r2', 'c4', 't2'],
 def main():
     subsets=[] #array of all subsets (class Ss variables for all)
     fin=[] #final array where the operations are to be recorded
+    tipchanges=0 #counts the total number of tip changes
     
     #initialise the matrix of distances, i.e. our graph of wells
     D=np.zeros((len(w),len(w)))
     
     #from the given list, fill the subsets array and initialise D
     convert(w,subsets)
+    
+    tipchanges=len(subsets)-1 #anyhow, we have to change the tip between the different reagents
     
     #print subsets and D (TEST ONLY)
     disp(subsets, D)
@@ -76,10 +79,10 @@ def main():
     """
     #implement the algorithm
     for i in range(0,len(subsets)):
-        singlesub(subsets[i],D,fin)
+        tipchanges=singlesub(subsets[i],D,fin,tipchanges)
         
     dispoper(fin)  
-    
+    print('The total number of pipette tip changhes is '+str(tipchanges))
 #-------------------------------FUNCTIONS-------------------------------  
 def convert(w, subsets):  
     #create all subsets
@@ -118,7 +121,7 @@ def randtimereorder(subsets):  #randomly reshuffle using time as seed
     np.random.RandomState(seed=round(time.time())).shuffle(subsets)
     
 #-------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
-def singlesub(subset,D,fin):
+def singlesub(subset,D,fin,tipchanges):
     #PART 1: initial preparations
     #initialise the subset's matrix subD
     subD=np.zeros((len(subset.wells)+1,len(subset.wells)+1)) #vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
@@ -169,6 +172,9 @@ def singlesub(subset,D,fin):
     while(tour[i]!=0):
         fin.append(Oper(subset.reag,subset.wells[tour[i]-1]))
         i+=1
+        
+    #PART 5: return the adjusted number of pipette tip changes
+    return tipchanges+get_cost(tour,tsp) #include the tour cost in the number of tip changes
             
 #-------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
