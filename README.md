@@ -1,10 +1,7 @@
 # pipette_opt
 Latest change: 4 May 2020 - improved comments, raw version of SAMETOGETHER added
 
-This branch introduces a counter of pipette tip changes and heuristic reorderings (instead of simply random) to our method
-
-COUNTING TIP CHANGES
-singlesub() now returns the updated number of tip changes
+This branch introduces heuristic reorderings (instead of simply random) to our method
 
 LEASTOUT REORDERING
 First, we go through the subsets with the least number of edges going from the subset to the remaining wells. Therefore, in the beginning we make the least number of edges equal to 1
