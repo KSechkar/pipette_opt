@@ -185,7 +185,7 @@ def singlesub(subset,D,fin,tipchanges):
         current_well=0
         for j_D in range(0,len(D)):
             if(j_D==subset.wells[current_well]):
-                subD[i_well][current_well]=D[subset.wells[i_well]][j_D] #select the edges within the subset into the submatrix
+                subD[i_well+1][current_well+1]=D[subset.wells[i_well]][j_D] #select the edges within the subset into the submatrix
                 if(current_well<sublen-1):
                     current_well+=1
             else:
