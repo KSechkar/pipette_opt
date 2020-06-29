@@ -63,21 +63,11 @@ def main():
     disp(subsets, D)
     
     #reorder the subsets. currently: in random order
-    #randreorder(subsets)
+    randreorder(subsets)
     
     #print subsets and D (TEST ONLY)
     #disp(subsets, D)
     
-    """
-    #TEST ONLY
-    D=np.array([[5,1,1,1.0],
-                [1,5,1,1],
-                [1,1,5,1],
-                [1,1,1,5]])
-    
-    print(subsets[0])
-    singlesub(subsets[0],D,fin,0)
-    """
     #implement the algorithm
     for i in range(0,len(subsets)):
         tipchanges=singlesub(subsets[i],D,fin,tipchanges)
@@ -137,20 +127,12 @@ def singlesub(subset,D,fin,tipchanges):
         current_well=0
         for j_D in range(0,len(D)):
             if(j_D==subset.wells[current_well]):
-                subD[i_well][current_well]=D[subset.wells[i_well]][j_D] #select the edges within the subset into the submatrix
+                subD[i_well+1][current_well+1]=D[subset.wells[i_well]][j_D] #select the edges within the subset into the submatrix
                 if(current_well<sublen-1):
                     current_well+=1
             else:
                 D[subset.wells[i_well]][j_D]=1 #make the edge going from the subset into the rest of D equal to one (updating D)
-    """
-    #TEST ONLY
-    subD=np.zeros([len(D)+1,len(D)+1])
-    for i in range(0, len(D)):
-        for j in range(0,len(D)):
-            subD[i+1][j+1]=D[i][j]
-    print(subD)
-    """
-    
+ 
     #PART 3: solve TSP for the subset
     tsp=TSP()
     tsp.read_mat(subD)
