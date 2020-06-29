@@ -54,6 +54,11 @@ def main():
     #initialise the matrix of distances, i.e. our graph of wells
     D=np.zeros((len(w),len(w)))
     
+    jsonreader('level_zero_constructs.json',subsets)
+    
+    print(reagdic)
+    disp(subsets,D)
+    """
     #from the given list, fill the subsets array and initialise D
     convert(w,subsets)
     
@@ -74,7 +79,7 @@ def main():
         
     dispoper(fin)  
     print('The total number of pipette tip changhes is '+str(tipchanges))
-    
+    """
     
 #-------------------------------FUNCTIONS-------------------------------  
 def convert(w, subsets):  
@@ -99,7 +104,57 @@ def disp(subsets, D):
 def dispoper(fin):
     for i in range(0,len(fin)):
         print(fin[i])
+
+def jsonreader(filename,subsets):
+    jsonfile = open(filename,"r")
+    if(jsonfile.mode=="r"):
+        jsoncontent=jsonfile.readlines() #read the file into an array of text line strings
         
+        #preset well indicies and indices of reagents to be recorded in the subsets list
+        well=-1
+        reagnum={'p': 0, 'r': 0, 'c': 0, 't': 0}
+        reagdic={}
+        
+        for jsonline in jsoncontent:
+            #if the new construct description starts, we assign it a new well number
+            if(jsonline[3:6]=='ss_'):
+                well+=1
+                
+            #determine which reagent class we're to deal with    
+            if(jsonline[7:15]=='promoter'):
+                reagclass='p'
+            elif(jsonline[7:10]=='rbs'):
+                reagclass='r'
+            elif(jsonline[7:10]=='cds'):
+                reagclass='c'
+            elif(jsonline[7:17]=='terminator'):
+                reagclass='t'
+            
+            #determine reagent name
+            if(jsonline[9:13]=='name'):
+                reagname=''
+                for jsonletter in jsonline[17:]:
+                    if(jsonletter!='"'):
+                        reagname+=jsonletter
+                    else:
+                        break
+                print(reagname)
+                #make a corresponding addition to subsets
+                match=False
+                for reagdic_it in reagdic:
+                    if(reagname==reagdic[reagdic_it]):
+                        match=True
+                        break
+                if(match):
+                    for subsets_it in subsets:
+                        if(subsets_it.reag==reagdic_it):
+                            subsets_it.nuwell(well)
+                else:
+                    reagdic_newkey=reagclass+str(reagnum[reagclass])
+                    subsets.append(Ss(reagdic_newkey,well))
+                    reagdic[reagdic_newkey]=reagname
+                    reagnum[reagclass]+=1
+            
 #-------------------------------REORDERINGS-------------------------------
 #Will try various reorderings, not only just random
 
