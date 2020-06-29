@@ -1,6 +1,6 @@
 #TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 #By Kirill Sechkar
-#v0.0.3, 31.3.20
+#v0.0.3, 29.6.20
 
 #The project makes use of the 'tspy' package
 
@@ -9,7 +9,7 @@ import time
 from tspy import TSP #TSP solver package
 
 #-------------------------------CLASS DEFINITIONS-------------------------------
-#Each reagent stands for a subest of wells which it is added to
+#Each reagent matched with a subest of wells it is added to
 class Ss:
     def __init__(self, reag, wellno): #initialisation
         self.reag=reag
@@ -35,7 +35,7 @@ class Oper:
         return strRep
  
 #-------------------------------INPUT-------------------------------
-#Will be replaced by a test exmple generator or manual input reading function
+#Will be replaced by a test example generator or manual input reading function
 
 #this is the example given to me in the main pipette_opt file
 w=[['p1', 'r2', 'c4', 't2'],
@@ -46,7 +46,7 @@ w=[['p1', 'r2', 'c4', 't2'],
 
 #-------------------------------MAIN-------------------------------
 def main():
-    subsets=[] #array of all subsets (class Ss variables for all)
+    subsets=[] #array of all subsets (class Ss variables)
     fin=[] #final array where the operations are to be recorded
     tipchanges=0 #counts the total number of tip changes
     
@@ -61,7 +61,7 @@ def main():
     #print subsets and D (TEST ONLY)
     disp(subsets, D)
     
-    #reorder the subsets || currently: in random order
+    #reorder the subsets. currently: in random order
     randreorder(subsets)
     
     #print subsets and D (TEST ONLY)
@@ -83,6 +83,8 @@ def main():
         
     dispoper(fin)  
     print('The total number of pipette tip changhes is '+str(tipchanges))
+    
+    
 #-------------------------------FUNCTIONS-------------------------------  
 def convert(w, subsets):  
     #create all subsets
@@ -123,11 +125,11 @@ def randtimereorder(subsets):  #randomly reshuffle using time as seed
 #-------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
 def singlesub(subset,D,fin,tipchanges):
     #PART 1: initial preparations
-    #initialise the subset's matrix subD
-    subD=np.zeros((len(subset.wells)+1,len(subset.wells)+1)) #vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
-    
     #get length to avoid calling len too often
     sublen=len(subset.wells)
+    
+    #initialise the subset's matrix subD
+    subD=np.zeros((sublen+1,sublen+1)) #vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
     
     #PART 2: select submatrix and update D as if problem for the subset is already solved
     for i_well in range(0,sublen):
@@ -175,7 +177,7 @@ def singlesub(subset,D,fin,tipchanges):
         
     #PART 5: return the adjusted number of pipette tip changes
     return tipchanges+get_cost(tour,tsp) #include the tour cost in the number of tip changes
-            
+
 #-------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
     main()
