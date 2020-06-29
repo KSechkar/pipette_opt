@@ -7,6 +7,7 @@
 import numpy as np
 import time
 from tspy import TSP #TSP solver package
+from tspy.solvers.utils import get_cost
 
 #-------------------------------CLASS DEFINITIONS-------------------------------
 #Each reagent matched with a subest of wells it is added to
@@ -62,7 +63,7 @@ def main():
     disp(subsets, D)
     
     #reorder the subsets. currently: in random order
-    randreorder(subsets)
+    #randreorder(subsets)
     
     #print subsets and D (TEST ONLY)
     #disp(subsets, D)
@@ -70,12 +71,12 @@ def main():
     """
     #TEST ONLY
     D=np.array([[5,1,1,1.0],
-                [0,5,1,1],
-                [1,0,5,1],
-                [1,1,0,5]])
+                [1,5,1,1],
+                [1,1,5,1],
+                [1,1,1,5]])
     
     print(subsets[0])
-    singlesub(subsets[0],D,fin)
+    singlesub(subsets[0],D,fin,0)
     """
     #implement the algorithm
     for i in range(0,len(subsets)):
