@@ -54,12 +54,17 @@ def main():
     fin=[] #final array where the operations are to be recorded
     tipchanges=0 #counts the total number of tip changes
     reagdic={} #dictionary that matches actual reagent names with p1, r2, c0, etc.
-
+    
+    #randomly generate w [comment to keep the hand-written example]
+    #change 1st argument to dfine the number of wells
+    #change 4 last arguments to define the size of p, r, c and t reagent sets
+    w=wgenerator(2,1,1,1,1)
+    
     #Get the subsets:
     #option 1: read a .json file [comment to deselect]
     #numberofwells=jsonreader('level_zero_constructs.json',subsets,reagdic)
     #option 2: use a pre-set 2D list [comment to deselect]
-    numberofwells=convert(wgenerator(2,1,1,1,1),subsets)
+    numberofwells=convert(w,subsets)
     
     #initialise the matrix of distances, i.e. our graph of wells
     D=np.zeros((numberofwells,numberofwells))   
