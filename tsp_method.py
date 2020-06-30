@@ -1,6 +1,6 @@
 #TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 #By Kirill Sechkar
-#v0.0.3, 29.6.20
+#v0.0.4, 30.6.20
 
 #The project makes use of the 'tspy' package
 
@@ -57,9 +57,9 @@ def main():
     
     #Get the subsets:
     #option 1: read a .json file [comment to deselect]
-    jsonreader('level_zero_constructs.json',subsets,reagdic)
+    #jsonreader('level_zero_constructs.json',subsets,reagdic)
     #option 2: use a pre-set 2D list [comment to deselect]
-    #convert(w,subsets)
+    convert(w,subsets)
     
     tipchanges=len(subsets) #anyhow, we have to change the tip between the different reagents and we have a tip at first
     
