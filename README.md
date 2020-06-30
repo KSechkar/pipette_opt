@@ -6,6 +6,7 @@ The tsp_method program implements the TSP-based algorithm outlined in the 'Possi
 The statespace_methods program implements various algorithms working with the state-space representation of the problem (see the 'ProblemRepresentation' document). Currently, it includes an iddfs solver of invariable depth 1
 
 ...
+
 json_reader branch
 
 Instead of a sample input list w, read a .json file and transcribe it into the list susbsets of type Ss
