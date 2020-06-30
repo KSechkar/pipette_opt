@@ -1,0 +1,56 @@
+{
+  "ss_J23100_RBSc13_GFP_T1": {
+    "parts": {
+      "promoter": {
+        "name": "J23100",
+         "conc_for_assembly":  40
+      },
+      "rbs": {
+        "name": "RBSc13",
+        "conc_for_assembly":  40
+      },
+      "cds": {
+        "name": "sfGFP",
+        "conc_for_assembly":  40
+      },
+      "terminator": {
+        "name": "T1",
+        "conc_for_assembly":  40
+      },
+      "backbone": {
+        "name": "pStA1AZ",
+        "conc_for_assembly":  20
+      }
+    },
+    "pcr_data": {
+      "reaction_volume" : 20
+    }
+  },
+  "ss_J23102_RBSc13_GFP_T1": {
+    "parts": {
+      "promoter": {
+        "name": "J23102",
+        "conc_for_assembly":  40
+      },
+      "rbs": {
+        "name": "RBSc13",
+        "conc_for_assembly":  40
+      },
+      "cds": {
+        "name": "sfGFP",
+        "conc_for_assembly":  40
+      },
+      "terminator": {
+        "name": "T1",
+        "conc_for_assembly":  40
+      },
+      "backbone": {
+        "name": "pStA1AZ",
+        "conc_for_assembly":  20
+      }
+    },
+    "pcr_data": {
+      "reaction_volume" : 20
+    }
+  }
+}
