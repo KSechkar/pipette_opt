@@ -9,6 +9,8 @@ import time
 from tspy import TSP #TSP solver package
 from tspy.solvers.utils import get_cost
 
+from input_generator import wgenerator
+
 #-------------------------------CLASS DEFINITIONS-------------------------------
 #Each reagent matched with a subest of wells it is added to
 class Ss:
@@ -38,6 +40,7 @@ class Oper:
 #-------------------------------INPUT-------------------------------
 #Will be replaced by a test example generator or manual input reading function
 
+
 #this is the example given to me in the main pipette_opt file
 w=[['p1', 'r2', 'c4', 't2'],
    ['p2', 'r2', 'c1', 't2'],
@@ -51,16 +54,16 @@ def main():
     fin=[] #final array where the operations are to be recorded
     tipchanges=0 #counts the total number of tip changes
     reagdic={} #dictionary that matches actual reagent names with p1, r2, c0, etc.
-    
-    #initialise the matrix of distances, i.e. our graph of wells
-    D=np.zeros((len(w),len(w)))
-    
+
     #Get the subsets:
     #option 1: read a .json file [comment to deselect]
-    #jsonreader('level_zero_constructs.json',subsets,reagdic)
+    #numberofwells=jsonreader('level_zero_constructs.json',subsets,reagdic)
     #option 2: use a pre-set 2D list [comment to deselect]
-    convert(w,subsets)
+    numberofwells=convert(wgenerator(2,1,1,1,1),subsets)
     
+    #initialise the matrix of distances, i.e. our graph of wells
+    D=np.zeros((numberofwells,numberofwells))   
+
     tipchanges=len(subsets) #anyhow, we have to change the tip between the different reagents and we have a tip at first
     
     #print subsets and D (TEST ONLY)
@@ -77,7 +80,8 @@ def main():
     print('The total number of pipette tips used is '+str(tipchanges))
     
 #-------------------------------FUNCTIONS-------------------------------  
-def convert(w, subsets):  
+#create subsets, return number of wells
+def convert(w, subsets):
     #create all subsets
     for i in range(0,len(w)):
         for j in range(0,4):
@@ -90,6 +94,7 @@ def convert(w, subsets):
                 subsets[k].nuwell(i)
             else:
                 subsets.append(Ss(w[i][j],i))
+    return(len(w))
                 
 def disp(subsets, D):
     for i in range(0,len(subsets)):
@@ -100,6 +105,7 @@ def dispoper(fin):
     for i in range(0,len(fin)):
         print(fin[i])
 
+#create subsets from file, return number of wells, update dictionary
 def jsonreader(filename,subsets,reagdic):
     jsonfile = open(filename,"r")
     if(jsonfile.mode=="r"):
@@ -114,8 +120,7 @@ def jsonreader(filename,subsets,reagdic):
             #if the new construct description starts, we assign it a new well number
             if(jsoncontent[jsonline][3:6]=='ss_'):
                 well+=1
-            
-            print(jsonline)    
+              
             #determine which reagent class we're to deal with    
             if(jsoncontent[jsonline][7:15]=='promoter'):
                 reagclass='p'
@@ -136,7 +141,6 @@ def jsonreader(filename,subsets,reagdic):
                         reagname+=jsonletter
                     else:
                         break
-                print(reagname)
                 #make a corresponding addition to subsets
                 match=False
                 for reagdic_it in reagdic:
@@ -154,6 +158,7 @@ def jsonreader(filename,subsets,reagdic):
                     reagnum[reagclass]+=1
                 
             jsonline+=1 #increase the counter
+    return(well+1)
             
 #-------------------------------REORDERINGS-------------------------------
 #Will try various reorderings, not only just random
