@@ -50,19 +50,18 @@ def main():
     subsets=[] #array of all subsets (class Ss variables)
     fin=[] #final array where the operations are to be recorded
     tipchanges=0 #counts the total number of tip changes
+    reagdic={} #dictionary that matches actual reagent names with p1, r2, c0, etc.
     
     #initialise the matrix of distances, i.e. our graph of wells
     D=np.zeros((len(w),len(w)))
     
-    jsonreader('level_zero_constructs.json',subsets)
+    #Get the subsets:
+    #option 1: read a .json file [comment to deselect]
+    jsonreader('level_zero_constructs.json',subsets,reagdic)
+    #option 2: use a pre-set 2D list [comment to deselect]
+    #convert(w,subsets)
     
-    print(reagdic)
-    disp(subsets,D)
-    """
-    #from the given list, fill the subsets array and initialise D
-    convert(w,subsets)
-    
-    tipchanges=len(subsets)-1 #anyhow, we have to change the tip between the different reagents
+    tipchanges=len(subsets) #anyhow, we have to change the tip between the different reagents and we have a tip at first
     
     #print subsets and D (TEST ONLY)
     disp(subsets, D)
@@ -70,16 +69,12 @@ def main():
     #reorder the subsets. currently: in random order
     randreorder(subsets)
     
-    #print subsets and D (TEST ONLY)
-    #disp(subsets, D)
-    
     #implement the algorithm
     for i in range(0,len(subsets)):
         tipchanges=singlesub(subsets[i],D,fin,tipchanges)
         
     dispoper(fin)  
-    print('The total number of pipette tip changhes is '+str(tipchanges))
-    """
+    print('The total number of pipette tips used is '+str(tipchanges))
     
 #-------------------------------FUNCTIONS-------------------------------  
 def convert(w, subsets):  
@@ -105,7 +100,7 @@ def dispoper(fin):
     for i in range(0,len(fin)):
         print(fin[i])
 
-def jsonreader(filename,subsets):
+def jsonreader(filename,subsets,reagdic):
     jsonfile = open(filename,"r")
     if(jsonfile.mode=="r"):
         jsoncontent=jsonfile.readlines() #read the file into an array of text line strings
@@ -113,27 +108,30 @@ def jsonreader(filename,subsets):
         #preset well indicies and indices of reagents to be recorded in the subsets list
         well=-1
         reagnum={'p': 0, 'r': 0, 'c': 0, 't': 0}
-        reagdic={}
         
-        for jsonline in jsoncontent:
+        jsonline=0
+        while(jsonline<len(jsoncontent)):
             #if the new construct description starts, we assign it a new well number
-            if(jsonline[3:6]=='ss_'):
+            if(jsoncontent[jsonline][3:6]=='ss_'):
                 well+=1
-                
+            
+            print(jsonline)    
             #determine which reagent class we're to deal with    
-            if(jsonline[7:15]=='promoter'):
+            if(jsoncontent[jsonline][7:15]=='promoter'):
                 reagclass='p'
-            elif(jsonline[7:10]=='rbs'):
+            elif(jsoncontent[jsonline][7:10]=='rbs'):
                 reagclass='r'
-            elif(jsonline[7:10]=='cds'):
+            elif(jsoncontent[jsonline][7:10]=='cds'):
                 reagclass='c'
-            elif(jsonline[7:17]=='terminator'):
+            elif(jsoncontent[jsonline][7:17]=='terminator'):
                 reagclass='t'
+            elif(jsoncontent[jsonline][7:15]=='backbone'): #if it's the backbone, skip
+                jsonline+=3
             
             #determine reagent name
-            if(jsonline[9:13]=='name'):
+            if(jsoncontent[jsonline][9:13]=='name'):
                 reagname=''
-                for jsonletter in jsonline[17:]:
+                for jsonletter in jsoncontent[jsonline][17:]:
                     if(jsonletter!='"'):
                         reagname+=jsonletter
                     else:
@@ -154,6 +152,8 @@ def jsonreader(filename,subsets):
                     subsets.append(Ss(reagdic_newkey,well))
                     reagdic[reagdic_newkey]=reagname
                     reagnum[reagclass]+=1
+                
+            jsonline+=1 #increase the counter
             
 #-------------------------------REORDERINGS-------------------------------
 #Will try various reorderings, not only just random
