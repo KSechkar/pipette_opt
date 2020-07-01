@@ -1,6 +1,6 @@
 #TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 #By Kirill Sechkar
-#v0.0.4, 30.6.20
+#v0.0.4, 31.6.20
 
 #The project makes use of the 'tspy' package
 
@@ -58,7 +58,7 @@ def main():
     #randomly generate w [comment to keep the hand-written example]
     #change 1st argument to dfine the number of wells
     #change 4 last arguments to define the size of p, r, c and t reagent sets
-    w=wgenerator(2,1,1,1,1)
+    #w=wgenerator(2,1,1,1,1)
     
     #Get the subsets:
     #option 1: read a .json file [comment to deselect]
