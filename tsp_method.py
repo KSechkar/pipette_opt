@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.4, 31.6.20
+# v0.0.5, 2.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -11,7 +11,8 @@ from tspy.solvers.utils import get_cost
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import route_cost, cost_func, dispoper
+from auxil import route_cost, cost_func, dispoper, route_cost_with_w
+from tsp_reorder import leastout,sametogether
 
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
@@ -54,51 +55,71 @@ w = [['p1', 'r2', 'c4', 't2'],
 
 # -------------------------------MAIN-------------------------------
 def main():
-    subsets = []  # array of all subsets (class Ss variables)
     fin = []  # final array where the operations are to be recorded
-    tips = 0  # counts the total number of tip changes
-    reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc.
 
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    w=wgenerator(96,6,6,3,4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # Get the subsets:
-    # option 1: read a .json file [comment to deselect]
-    # numberofwells=jsonreader('level_zero_constructs.json',subsets,reagdic)
-    # option 2: use a pre-set 2D list [comment to deselect]
-    numberofwells = convert(w, subsets)
+    # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
+    tips = tsp_method(w, '', fin)
 
-    # initialise the matrix of distances, i.e. our graph of wells
-    D = np.zeros((numberofwells, numberofwells))
+    dispoper(fin)
+
+    # PERFORMACE EVALUATION: print the working time
+    print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
+    print('The total number of pipette tips used is ' + str(tips))
+
+
+# ---------------------SOLVER FUNCTION-------------------------------
+# solves the problem, returns total cost
+def tsp_method(w, filename, fin):
+    subsets = []  # array of all subsets (class Ss)
+    tips = 0  # counts the total number of tip changes
+    reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc. - needed for jsonreader
+
+    # get the subsets
+    if (len(filename) == 0):
+        convert(w, subsets)
+    else:
+        jsonreader(filename, subsets, reagdic)
+
+    D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
 
     tips = len(subsets)  # anyhow, we have to change the tip between the different reagents and we have a tip at first
 
     # print subsets and D (TEST ONLY)
     disp(subsets, D)
 
-    # reorder the subsets. currently: in random order
-    randreorder(subsets)
+    # reorder the subsets [comment to deselect]...
+    # ...randomly
+    # np.random.shuffle(subsets)
+
+    # ...randomly using time as a seed
+    # np.random.RandomState(seed=round(time.time())).shuffle(subsets)
+
+    # ...leastout
+    # leastout(subsets, len(w))
+
+    # ...sametogether
+    sametogether(subsets, len(w))
+
+    # print subsets and D (TEST ONLY)
+    disp(subsets, D)
 
     # implement the algorithm
     for i in range(0, len(subsets)):
         tips = singlesub(subsets[i], D, fin, tips)
 
-    dispoper(fin)
-    print('The total number of pipette tips used is ' + str(tips))
-
-    # PERFORMACE EVALUATION: print the working time
-    print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-
-    print(route_cost(fin))
+    return tips
 
 
 # ---------------------FUNCTIONS INVOLVING SUBSETS-------------------------------
-# create subsets, return number of wells
+# create subsets
 def convert(w, subsets):
     # create all subsets
     for i in range(0, len(w)):
@@ -112,7 +133,6 @@ def convert(w, subsets):
                 subsets[k].nuwell(i)
             else:
                 subsets.append(Ss(w[i][j], i))
-    return (len(w))
 
 
 def disp(subsets, D):
@@ -175,21 +195,6 @@ def jsonreader(filename, subsets, reagdic):
 
             jsonline += 1  # increase the counter
     return (well + 1)
-
-
-# -------------------------------REORDERINGS-------------------------------
-# Will try various reorderings, not only just random
-
-# !!Question: is it best to a)reshuffle the original array ('shuffle');
-#                          b)copy subd]sets into a new reshuffle array ('permutation'); 
-#                          c)create an array of reshuffled subsets addresses?
-
-def randreorder(subsets):  # randomly reshuffle using default seed
-    np.random.shuffle(subsets)
-
-
-def randtimereorder(subsets):  # randomly reshuffle using time as seed
-    np.random.RandomState(seed=round(time.time())).shuffle(subsets)
 
 
 # -------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
