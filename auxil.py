@@ -1,8 +1,11 @@
 # AUXIL.PY
 # Auxiliary functions (e.g. route cost calculator, operation printer) used by both TSP- and State Space-based methods
-# v0.0.1, 01.07.2020
+# v0.0.2, 02.07.2020
 
 import numpy as np
+
+#match reagents with their addresses in w
+ADDRESS={'p': 0, 'r': 1, 'c': 2, 't': 3}
 
 # -------------RESULTS PRINTING-------------
 def dispoper(fin):
@@ -15,7 +18,7 @@ def dispoper(fin):
 def route_cost(fin):
     cost = 1
     for f in range(1, len(fin)):
-        cost += cost_func(fin[0:f], fin[f])
+        cost+=cost_func(fin[0:f], fin[f])
     return cost
 
 
@@ -46,17 +49,36 @@ def cost_func(fin, op):
             cost = 0
     return cost
 
-#INCOMPLETE
-# a faster way to determine operation cost by also using the input list and knowing which position in w stands for what
-def cost_func_with_w(w,fin,op):
-    reag_address={'p': 0, 'r': 1, 'c': 2, 't': 3}
+
+# alterative way to determine operation cost by also knowing the the input well array
+def route_cost_with_w(fin,w):
+    added = np.zeros((len(w), len(w[0]))) #tells which reagents were added to which well
+
+    #for the first operation in fin
+    cost=1
+    added[fin[0].well][ADDRESS[fin[0].reag[0]]]=1
+    for i in range(1, len(fin)):
+        cost+=cost_func_with_w(fin[0:i],fin[i],w,added)
+        added[fin[i].well][ADDRESS[fin[i].reag[0]]] = 1
+    return cost
+
+def cost_func_with_w(fin,op,w,added):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
     # find the number of the last well where a reagent was added
     lastwell = fin[lastindex].well
 
-    #generate a table of whether each reagent in each well was added
-    added=np.zeros(len(w),len(w[0]))
-    for f in fin:
-        added[f.well][reag_address[f.reag[0]]]=1
+    if(fin[lastindex].reag!=op.reag):
+        cost=1
+    else:
+        #check  on all 3 remaining
+        cost=0
+        for i in range(0,len(w[0])):
+            if(w[lastwell][i]!=fin[lastindex].reag):
+                if not (added[lastwell][i]==0 or (w[lastwell][i]==w[op.well][i] and added[op.well][i]==1)):
+                    cost=1
+
+    return cost
+
+
 
