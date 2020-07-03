@@ -1,12 +1,11 @@
 # pipette_opt
-Latest change: 2 July 2020 - an alternative cost function introduced: thanks to it, an adjusted IDDFS works faster, so a depth 2 IDDFS is now possible.
-The heurstic reorderings are now transferred to tsp_reorder.py from tsp_method.py of the branch 'heuristic_reorderings' (the latter is now closed).
+Latest change: 3 July 2020 - a* solver introduced to statespace_methods. Unfortunately, current a* algorithm proved to be too slow to be considered a viable solution.
 
 The tsp_method program implements the TSP-based algorithm outlined in the 'PossibleSolution' document.
 The method used to solve the TSP is 2-opt of the Nearest Neighbour algorithm.
 
 The statespace_methods program implements various algorithms working with the state-space representation of the problem (see the 'ProblemRepresentation' document).
-Currently, it contains two kinds of iddfs solver.
+Currently, it contains two kinds of iddfs solver and an a* solver.
 
 The input_generator program contains fucntions that create random inputs used for algorithm testing.
 
