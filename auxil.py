@@ -26,6 +26,10 @@ def route_cost(fin):
 def cost_func(fin, op):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
+
+    if (lastindex < 0):  # if no previous operations have been performed, we obviously need to put on a tip
+        return 1
+
     # find the number of the last well where a reagent was added
     lastwell = fin[lastindex].well
     # reagents present in this well affect the cost and thus need to be determined
@@ -65,6 +69,9 @@ def route_cost_with_w(fin,w):
 def cost_func_with_w(fin,op,w,added):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
+    if(lastindex<0): #if no previous operations have been performed, we obviously need to put on a tip
+        return 1
+
     # find the number of the last well where a reagent was added
     lastwell = fin[lastindex].well
 
