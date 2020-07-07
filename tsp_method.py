@@ -8,11 +8,13 @@ import numpy as np
 import time
 from tspy import TSP  # TSP solver package
 from tspy.solvers.utils import get_cost
+from tspy.solvers import TwoOpt_solver
+from tsp_lp_solver import tsp_lp
 
 # import functions from own files
 from input_generator import wgenerator
 from auxil import route_cost, cost_func, dispoper, route_cost_with_w
-from tsp_reorder import leastout,sametogether
+from tsp_reorder import leastout,sametogether,reorder_iddfs,reorder_greedy,reorder_a_star
 
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
@@ -73,6 +75,7 @@ def main():
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     print('The total number of pipette tips used is ' + str(tips))
+    print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -89,33 +92,57 @@ def tsp_method(w, filename, fin):
         jsonreader(filename, subsets, reagdic)
 
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
+    for i in range(0,len(D)): #forbid going from one node to itself by setting a very high cost
+        D[i][i]=1000*len(D)
 
     tips = len(subsets)  # anyhow, we have to change the tip between the different reagents and we have a tip at first
 
     # print subsets and D (TEST ONLY)
-    disp(subsets, D)
+    #disp(subsets, D)
 
     # reorder the subsets [comment to deselect]...
     # ...randomly
-    # np.random.shuffle(subsets)
+    np.random.shuffle(subsets)
 
+    #TEST ONLY
+    subsets1 = subsets.copy()
+    tips1 = len(subsets1)
+    D1=D.copy()
+    fin1=[]
+    for i in range(0, len(subsets1)):
+        print(str(i) + ' of ' + str(len(subsets1) - 1) + ' subsets processed')
+        tips1 = singlesub(subsets1[i], D1, fin1, tips1)
+    print(tips1)
     # ...randomly using time as a seed
     # np.random.RandomState(seed=round(time.time())).shuffle(subsets)
 
     # ...leastout
-    # leastout(subsets, len(w))
+    #leastout(subsets, len(w))
 
     # ...sametogether
-    sametogether(subsets, len(w))
+    #sametogether(subsets, len(w))
+
+    #...iddfs
+    origsubs=subsets.copy()
+    subsets=[]
+    #reorder_iddfs(origsubs,subsets,D.copy(),2)
+
+    #...greedy tree search
+    #reorder_greedy(origsubs,subsets,D.copy(),'countall')
+
+    #...A*  tree search
+    reorder_a_star(origsubs,subsets,D.copy(),'countall')
 
     # print subsets and D (TEST ONLY)
     disp(subsets, D)
 
     # implement the algorithm
+
     for i in range(0, len(subsets)):
+        print(str(i)+' of '+str(len(subsets)-1)+' subsets processed')
         tips = singlesub(subsets[i], D, fin, tips)
 
-    return tips
+    return tips1-tips
 
 
 # ---------------------FUNCTIONS INVOLVING SUBSETS-------------------------------
@@ -224,10 +251,9 @@ def singlesub(subset, D, fin, tips):
     tsp = TSP()
     tsp.read_mat(subD)
 
-    from tspy.solvers import TwoOpt_solver
     two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
     tour = tsp.get_approx_solution(two_opt)
-    print(tour)
+
 
     # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
     # find the position of the zero node in the tour
