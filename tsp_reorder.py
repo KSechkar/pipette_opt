@@ -3,7 +3,12 @@
 # v0.0.1, 2.7.20
 
 import numpy as np
-
+import cvxpy as cvx
+import gurobipy
+from tsp_lp_solver import tsp_lp
+from tspy import TSP
+from tspy.solvers.utils import get_cost
+from tspy.solvers import TwoOpt_solver
 
 # ------------------CLASS DEFINITIONS---------------
 # needed for the sametogether reordering
@@ -12,6 +17,39 @@ class Sametogether:
         self.reagtype = reagtype
         self.subs = []
         self.outgoing = 0
+
+class Ss:
+    def __init__(self, reag, wellno):  # initialisation
+        self.reag = reag
+        self.wells = [wellno]
+
+    def nuwell(self, wellno):  # record new well in the subset
+        self.wells.append(wellno)
+
+    def __str__(self):  # for printing the subset's reagent type and wells out
+        strRep = self.reag + '|'
+        for i in range(0, len(self.wells)):
+            strRep = strRep + ' ' + str(self.wells[i])
+        return strRep
+
+# Final output format is an array of Operations - will be the same for ALL methods
+class Oper:
+    def __init__(self, reag, well):
+        self.reag = reag
+        self.well = well
+
+    def __str__(self):  # for printing the subset's reagent type and wells out
+        strRep = self.reag + ' -> w' + str(self.well)
+        return strRep
+
+# ------------------MAIN (only for function testing)---------------
+def main():
+    D=np.zeros((3,3))
+    subset=Ss('p1',1)
+    subset.wells.append(2)
+    print(Dupdate(D,subset))
+    print(D)
+
 
 
 # -------------SIMPLE REORDERINGS----------------
@@ -55,3 +93,233 @@ def sametogether(subsets, totalwells):
 
     for i in range(0, 4):
         print(together[i].outgoing)
+
+# -------------STATE-SPACE REORDERINGS----------------
+#iddfs
+def reorder_iddfs(origsubs,subsets,D,depth):
+    # if we want to randomise the order first
+    # np.random.shuffle(origsubs)
+
+    all_operations = len(origsubs)
+
+    subsets.append(origsubs[0])
+    origsubs.pop(0)
+    werenew=Dupdate(D,subsets[0])
+
+    while (len(subsets) < all_operations):
+        print(len(subsets))
+
+        nextop = reorder_iddfs_oneiter(origsubs, subsets, D, 1, depth)
+        subsets.append(origsubs[nextop])
+        origsubs.pop(nextop)
+        Dupdate(D, subsets[-1])
+
+def reorder_iddfs_oneiter(origsubs,subsets,D,curdepth,depth):
+    # determine the potential cost of each possible operation
+    potcost = []
+    for i in range(0, len(origsubs)):
+        fin=[]
+        Dcopy=D.copy()
+        potcost.append(singlesub(origsubs[i],Dcopy,fin,0))
+        # next iteration
+        werenew = Dupdate(D, origsubs[i])
+        if (curdepth < depth and len(origsubs) != 1):
+            # change the inputs for next iteration
+            subsets.append(origsubs[i])
+            origsubs.pop(i)
+
+            # call next iteration
+            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth)
+
+            # change the inputs back
+            origsubs.insert(i, subsets[-1])
+            subsets.pop()
+
+        Drollback(D,werenew)
+    # act according to the determined costs
+    if (curdepth == 1):
+        answer = potcost.index(min(potcost))
+    else:
+        answer = min(potcost)
+
+    return answer
+
+#greedy algorithm
+def reorder_greedy(origsubs,subsets,D,heur):
+    # if we want to randomise the order first
+    # np.random.shuffle(origsubs)
+
+    all_operations = len(origsubs)
+
+    subsets.append(origsubs[0])
+    origsubs.pop(0)
+    Dupdate(D, subsets[0])
+
+    while (len(subsets) < all_operations):
+        print(len(subsets))
+
+        nextop = reorder_greedy_onestep(origsubs, subsets, D, heur)
+        subsets.append(origsubs[nextop])
+        origsubs.pop(nextop)
+        Dupdate(D, subsets[-1])
+
+def reorder_greedy_onestep(origsubs,subsets,D,heur):
+    # determine the potential cost of each possible operation
+    potcost = []
+    for i in range(0, len(origsubs)):
+        #cost function component
+        fin = []
+        Dcopy = D.copy()
+        potcost.append(singlesub(origsubs[i], Dcopy, fin, 0))
+
+        #heuristic component
+        werenew = Dupdate(D, origsubs[i])
+        subsets.append(origsubs[i])
+        origsubs.pop(i)
+        potcost[-1] += h_tree(subsets, origsubs, D, heur)
+        origsubs.insert(i, subsets[-1])
+        subsets.pop()
+        Drollback(D,werenew)
+
+    return potcost.index(min(potcost))
+
+#a star
+def reorder_a_star(origsubs,subsets,D,heur):
+    alloperations=len(origsubs)
+
+    # if we want to randomise the operation order
+    #np.random.shuffle(ops)
+
+    # starting position - state with no operations performed
+    states=[[]] #list of states in state-space under consideration
+    unstates=[origsubs] #list of reagents NOT added for a given state
+    g=[0] #distance from origin, mirrors states
+    f=[0] #f(states[i])=g(states[i])+h(states[i]), mirrors states
+    l=[0]
+    d=[D.copy()]
+
+    while(len(states)!=0):
+        consider=f.index(min(f))
+
+        #TEST ONLY
+        if(len(states[consider])!=0):
+            print(str(len(states)) + ' ' + str(h_tree(states[consider], unstates[consider], d[consider],heur)) + ' ' + str(max(l)))
+
+        print(consider)
+        if(len(states[consider])==alloperations):
+            for s in states[consider]:
+                subsets.append(s)
+            break
+
+        #add neighbours to considered states
+        for i in range(0,len(unstates[consider])):
+            fin=[]
+            states.append(states[consider]+[unstates[consider][i]])
+            d.append(D.copy())
+            unstates.append(unstates[consider][0:i]+unstates[consider][i+1:len(unstates[consider])])
+            g.append(g[consider]+singlesub(unstates[consider][i],d[-1],fin,0))
+            f.append(g[-1]+h_tree(states[-1],unstates[-1],d[-1],heur))
+            Dupdate(d[-1],states[-1][-1])
+            l.append(len(states[-1])) #TEST ONLY
+
+        #remove the state in question
+        states.pop(consider)
+        unstates.pop(consider)
+        g.pop(consider)
+        f.pop(consider)
+        d.pop(consider)
+        l.pop(consider) #TEST ONLY
+
+def h_tree(complete,todo, D, heur):
+    if (heur == 'countall'):  # h is the sum of all nonzero edges multiplied by the number of iterations left
+        Dupdate(D, complete[-1])
+        tally=0
+        for i in range(0,len(D)):
+            for j in range(0,len(D)):
+                if(i!=j):
+                   tally+=D[i][j]
+        return tally*len(todo)
+    elif(heur=='leastout'): #works analogically to the leastout sorting
+        return len(Dupdate(D, complete[-1]))
+
+    return 0
+
+
+# -----------STATE-SPACE auxiliaries--------------
+# update D according to the subset
+def Dupdate(D, subset):
+    werenew = []
+    sublen = len(subset.wells)
+    for i_well in range(0, len(subset.wells)):
+        current_well = 0
+        for j_D in range(0, len(D)):
+            if (j_D != subset.wells[current_well]):
+                if (current_well < sublen - 1):
+                    current_well += 1
+            else:
+                if (D[subset.wells[i_well]][j_D] != 1 and subset.wells[i_well] != j_D):
+                    D[subset.wells[i_well]][j_D] = 1
+                    werenew.append([subset.wells[i_well], j_D])
+    return werenew
+
+
+# roll D back to before the Dupdate call
+def Drollback(D, werenew):
+    for i in range(0, len(werenew)):
+        D[werenew[i][0]][werenew[i][1]] -= 1
+
+
+# copy of function from tsp_method [living here temporary] to get the costs
+def singlesub(subset, D, fin, tips):
+    # PART 1: initial preparations
+    # get length to avoid calling len too often
+    sublen = len(subset.wells)
+
+    # initialise the subset's matrix subD
+    subD = np.zeros((sublen + 1,
+                     sublen + 1))  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
+
+    # PART 2: select submatrix and update D as if problem for the subset is already solved
+    for i_well in range(0, sublen):
+        current_well = 0
+        for j_D in range(0, len(D)):
+            if (j_D == subset.wells[current_well]):
+                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][
+                    j_D]  # select the edges within the subset into the submatrix
+                if (current_well < sublen - 1):
+                    current_well += 1
+            else:
+                D[subset.wells[i_well]][
+                    j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
+
+    # PART 3: solve TSP for the subset
+    tsp = TSP()
+    tsp.read_mat(subD)
+
+    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+    tour = tsp.get_approx_solution(two_opt)
+    # print(tour)
+
+    # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
+    # find the position of the zero node in the tour
+    i = 0
+    while (tour[i] != 0):
+        i += 1
+    # record the part after the zero node
+    i += 1
+    while (i < len(tour) - 1):
+        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
+        i += 1
+    # record the part 'before'the zero node
+    i = 0
+    while (tour[i] != 0):
+        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
+        i += 1
+
+    # PART 5: return the adjusted number of pipette tip changes
+    return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
+
+
+# -------------------------------MAIN CALL-------------------------------
+if __name__ == "__main__":
+    main()
