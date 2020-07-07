@@ -65,6 +65,9 @@ def main():
     #use a_star on a tree to solve the problem
     #a_star_tree(w,fin,'optimistic')
 
+    #use greedy algorithm on a tree to solve the problem
+    #greedy_tree(w,fin,'optimistic')
+
     dispoper(fin)
 
     # PERFORMANCE EVALUATION: print the working time
@@ -194,6 +197,44 @@ def a_star_tree(w,fin,heur):
         g.pop(consider)
         f.pop(consider)
         l.pop(consider) #TEST ONLY
+
+# ---------------------------SOLVER (GREEDY)-------------------
+def greedy_tree(w,fin,heur):
+    ops = []  # an Oper list of operations to be performed
+    getops(w, ops)
+
+    # if we want to randomise the operation order
+    np.random.shuffle(ops)
+
+    all_operations = len(w) * len(w[0])
+
+    fin.append(ops[0])
+    ops.pop(0)
+
+    added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
+    added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+
+    while (len(fin) < all_operations):
+        print(len(fin))
+        nextop = greedy_tree_onestep(ops, fin,w, added,heur)
+        added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
+
+        fin.append(ops[nextop])
+        ops.pop(nextop)
+
+def greedy_tree_onestep(ops,fin,w,added,heur):
+
+    potcost = []
+    for i in range(0, len(ops)):
+        potcost.append(cost_func_with_w(fin, ops[i], w, added)) #cost function
+        fin.append(ops[i])
+        ops.pop(i)
+        potcost[-1]+=h_tree(fin,ops,heur) #heurstic
+        ops.insert(i,fin[-1])
+        fin.pop()
+
+    # act according to the determined costs
+    return potcost.index(min(potcost))
 
 
 #heuristic function
