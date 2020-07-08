@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.5, 2.7.20
+# v0.0.6, 8.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -13,8 +13,8 @@ from tsp_lp_solver import tsp_lp
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import route_cost, cost_func, dispoper, route_cost_with_w
-from tsp_reorder import leastout,sametogether,reorder_iddfs,reorder_greedy,reorder_a_star
+from auxil import dispoper, route_cost_with_w
+from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
 
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
@@ -55,6 +55,8 @@ w = [['p1', 'r2', 'c4', 't2'],
      ['p2', 'r3', 'c1', 't1']]
 
 
+# w=[['p3', 'r5', 'c2', 't0'], ['p5', 'r2', 'c0', 't1'], ['p1', 'r5', 'c2', 't0'], ['p1', 'r5', 'c2', 't1'], ['p3', 'r3', 'c2', 't1'], ['p2', 'r5', 'c0', 't3'], ['p1', 'r4', 'c2', 't2'], ['p0', 'r0', 'c1', 't3'], ['p0', 'r1', 'c1', 't2'], ['p3', 'r4', 'c2', 't3'], ['p1', 'r0', 'c1', 't1'], ['p5', 'r3', 'c2', 't1'], ['p4', 'r0', 'c1', 't1'], ['p5', 'r0', 'c0', 't1'], ['p4', 'r5', 'c0', 't1'], ['p1', 'r0', 'c1', 't3'], ['p5', 'r4', 'c1', 't0'], ['p0', 'r3', 'c0', 't3'], ['p1', 'r1', 'c2', 't1'], ['p5', 'r3', 'c2', 't1'], ['p5', 'r2', 'c1', 't1'], ['p4', 'r3', 'c0', 't1'], ['p3', 'r5', 'c0', 't1'], ['p2', 'r0', 'c1', 't1'], ['p5', 'r2', 'c0', 't2'], ['p3', 'r4', 'c2', 't1'], ['p1', 'r3', 'c1', 't0'], ['p5', 'r3', 'c0', 't3'], ['p0', 'r0', 'c0', 't3'], ['p2', 'r3', 'c1', 't3'], ['p2', 'r5', 'c1', 't3'], ['p3', 'r3', 'c0', 't1'], ['p5', 'r5', 'c1', 't3'], ['p3', 'r1', 'c0', 't1'], ['p3', 'r1', 'c1', 't1'], ['p4', 'r5', 'c2', 't2'], ['p0', 'r3', 'c1', 't2'], ['p1', 'r5', 'c1', 't1'], ['p0', 'r5', 'c1', 't0'], ['p2', 'r1', 'c2', 't3'], ['p5', 'r2', 'c1', 't2'], ['p2', 'r1', 'c1', 't2'], ['p0', 'r0', 'c0', 't0'], ['p5', 'r4', 'c1', 't2'], ['p4', 'r0', 'c0', 't0'], ['p2', 'r3', 'c2', 't2'], ['p3', 'r1', 'c0', 't1'], ['p5', 'r1', 'c2', 't0'], ['p1', 'r5', 'c1', 't0'], ['p0', 'r5', 'c1', 't3'], ['p3', 'r0', 'c2', 't2'], ['p2', 'r2', 'c0', 't0'], ['p0', 'r5', 'c2', 't0'], ['p1', 'r4', 'c0', 't3'], ['p2', 'r2', 'c0', 't2'], ['p1', 'r2', 'c2', 't0'], ['p0', 'r5', 'c1', 't0'], ['p3', 'r3', 'c2', 't0'], ['p2', 'r0', 'c0', 't2'], ['p2', 'r2', 'c0', 't2'], ['p0', 'r5', 'c1', 't3'], ['p3', 'r2', 'c2', 't0'], ['p4', 'r0', 'c1', 't1'], ['p2', 'r1', 'c0', 't0'], ['p3', 'r1', 'c1', 't2'], ['p4', 'r1', 'c1', 't2'], ['p4', 'r1', 'c1', 't1'], ['p1', 'r3', 'c1', 't0'], ['p4', 'r1', 'c2', 't3'], ['p0', 'r2', 'c1', 't3'], ['p2', 'r3', 'c2', 't3'], ['p5', 'r3', 'c1', 't3'], ['p4', 'r0', 'c1', 't0'], ['p4', 'r5', 'c1', 't1'], ['p0', 'r2', 'c1', 't0'], ['p0', 'r1', 'c1', 't0'], ['p5', 'r0', 'c0', 't3'], ['p5', 'r4', 'c0', 't0'], ['p5', 'r5', 'c2', 't2'], ['p2', 'r2', 'c1', 't2'], ['p1', 'r1', 'c1', 't1'], ['p2', 'r5', 'c1', 't1'], ['p1', 'r2', 'c0', 't1'], ['p5', 'r5', 'c0', 't1'], ['p2', 'r3', 'c0', 't1'], ['p4', 'r4', 'c0', 't2'], ['p5', 'r4', 'c1', 't1'], ['p0', 'r4', 'c0', 't3'], ['p3', 'r1', 'c1', 't1'], ['p4', 'r1', 'c2', 't2'], ['p5', 'r4', 'c0', 't0'], ['p0', 'r3', 'c1', 't3'], ['p0', 'r4', 'c2', 't1'], ['p2', 'r4', 'c2', 't2'], ['p2', 'r5', 'c2', 't1'], ['p3', 'r2', 'c2', 't3']]
+
 # -------------------------------MAIN-------------------------------
 def main():
     fin = []  # final array where the operations are to be recorded
@@ -68,7 +70,7 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tips = tsp_method(w, '', fin)
+    tips = tsp_method(w, '', fin, 'greedy')
 
     dispoper(fin)
 
@@ -80,7 +82,7 @@ def main():
 
 # ---------------------SOLVER FUNCTION-------------------------------
 # solves the problem, returns total cost
-def tsp_method(w, filename, fin):
+def tsp_method(w, filename, fin, reord):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
     reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc. - needed for jsonreader
@@ -92,57 +94,44 @@ def tsp_method(w, filename, fin):
         jsonreader(filename, subsets, reagdic)
 
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
-    for i in range(0,len(D)): #forbid going from one node to itself by setting a very high cost
-        D[i][i]=1000*len(D)
+    for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
+        D[i][i] = 1000 * len(D)
 
     tips = len(subsets)  # anyhow, we have to change the tip between the different reagents and we have a tip at first
 
     # print subsets and D (TEST ONLY)
-    #disp(subsets, D)
+    # disp(subsets, D)
 
-    # reorder the subsets [comment to deselect]...
-    # ...randomly
-    np.random.shuffle(subsets)
-
-    #TEST ONLY
-    subsets1 = subsets.copy()
-    tips1 = len(subsets1)
-    D1=D.copy()
-    fin1=[]
-    for i in range(0, len(subsets1)):
-        print(str(i) + ' of ' + str(len(subsets1) - 1) + ' subsets processed')
-        tips1 = singlesub(subsets1[i], D1, fin1, tips1)
-    print(tips1)
-    # ...randomly using time as a seed
-    # np.random.RandomState(seed=round(time.time())).shuffle(subsets)
-
-    # ...leastout
-    #leastout(subsets, len(w))
-
-    # ...sametogether
-    #sametogether(subsets, len(w))
-
-    #...iddfs
-    origsubs=subsets.copy()
-    subsets=[]
-    #reorder_iddfs(origsubs,subsets,D.copy(),2)
-
-    #...greedy tree search
-    #reorder_greedy(origsubs,subsets,D.copy(),'countall')
-
-    #...A*  tree search
-    reorder_a_star(origsubs,subsets,D.copy(),'countall')
+    # reorder the subsets...
+    if (reord == 'random'):  # ...randomly
+        np.random.shuffle(subsets)
+    elif (reord == 'random with time seed'):  # ...randomly using time as a seed
+        np.random.RandomState(seed=round(time.time())).shuffle(subsets)
+    elif (reord == 'leastout'):  # ...leastout
+        leastout(subsets, len(w))
+    elif (reord == 'sametogether'):  # ...sametogether
+        sametogether(subsets, len(w))
+    elif(reord!=''):  # (various state-space reorderings)
+        origsubs = subsets.copy()
+        subsets = []
+        if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. iddfs depth 1)
+            reorder_iddfs(origsubs, subsets, D.copy(), 1)
+        elif (reord == 'idffs depth 2'):  # ...iddfs
+            reorder_iddfs(origsubs, subsets, D.copy(), 1)
+        elif (reord == 'greedy'):  # ...greedy tree search
+            reorder_greedy(origsubs, subsets, D.copy(), 'countall')
+        elif (reord == 'a*'):  # ...A*  tree search
+            reorder_a_star(origsubs, subsets, D.copy(), 'countall')
 
     # print subsets and D (TEST ONLY)
-    disp(subsets, D)
+    # disp(subsets, D)
 
     # implement the algorithm
-
     for i in range(0, len(subsets)):
-        print(str(i)+' of '+str(len(subsets)-1)+' subsets processed')
+        print(str(i) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
         tips = singlesub(subsets[i], D, fin, tips)
 
-    return tips1-tips
+    return tips
 
 
 # ---------------------FUNCTIONS INVOLVING SUBSETS-------------------------------
@@ -253,7 +242,6 @@ def singlesub(subset, D, fin, tips):
 
     two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
     tour = tsp.get_approx_solution(two_opt)
-
 
     # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
     # find the position of the zero node in the tour
