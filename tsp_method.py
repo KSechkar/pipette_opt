@@ -70,7 +70,7 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tips = tsp_method(w, '', fin, 'greedy')
+    tips = tsp_method(w, fin, 'sametogether',filename=None)
 
     dispoper(fin)
 
@@ -82,13 +82,13 @@ def main():
 
 # ---------------------SOLVER FUNCTION-------------------------------
 # solves the problem, returns total cost
-def tsp_method(w, filename, fin, reord):
+def tsp_method(w, fin, reord,filename):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
     reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc. - needed for jsonreader
 
     # get the subsets
-    if (len(filename) == 0):
+    if (filename == None):
         convert(w, subsets)
     else:
         jsonreader(filename, subsets, reagdic)
@@ -111,13 +111,13 @@ def tsp_method(w, filename, fin, reord):
         leastout(subsets, len(w))
     elif (reord == 'sametogether'):  # ...sametogether
         sametogether(subsets, len(w))
-    elif(reord!=''):  # (various state-space reorderings)
+    elif(reord!=None):  # (various state-space reorderings)
         origsubs = subsets.copy()
         subsets = []
         if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. iddfs depth 1)
             reorder_iddfs(origsubs, subsets, D.copy(), 1)
-        elif (reord == 'idffs depth 2'):  # ...iddfs
-            reorder_iddfs(origsubs, subsets, D.copy(), 1)
+        elif (reord == 'iddfs depth 2'):  # ...iddfs
+            reorder_iddfs(origsubs, subsets, D.copy(), 2)
         elif (reord == 'greedy'):  # ...greedy tree search
             reorder_greedy(origsubs, subsets, D.copy(), 'countall')
         elif (reord == 'a*'):  # ...A*  tree search
@@ -128,7 +128,7 @@ def tsp_method(w, filename, fin, reord):
 
     # implement the algorithm
     for i in range(0, len(subsets)):
-        print(str(i) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
+        #print(str(i) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
         tips = singlesub(subsets[i], D, fin, tips)
 
     return tips
