@@ -8,6 +8,8 @@ import time
 # import functions from own files
 from input_generator import wgenerator
 from auxil import route_cost, cost_func, dispoper, cost_func_with_w, route_cost_with_w
+from tsp_method import convert
+from tsp_reorder import sametogether
 
 # match reagents with their addresses in w
 ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
@@ -60,13 +62,13 @@ def main():
     time1 = time.time()
 
     # use iddfs to solve the problem
-    iddfs(w, fin, 2, True)
+    #iddfs(w, fin, 2, True,'sametogether')
 
     #use a_star on a tree to solve the problem
     #a_star_tree(w,fin,'optimistic')
 
     #use greedy algorithm on a tree to solve the problem
-    #greedy_tree(w,fin,'optimistic')
+    greedy_tree(w,fin,'optimistic','justsubsets')
 
     dispoper(fin)
 
@@ -78,9 +80,9 @@ def main():
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
 # iddfs function
-def iddfs(w, fin, depth, with_w):
+def iddfs(w, fin, depth, with_w,reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops)
+    getops(w, ops,reord)
 
     # if we want to randomise the operation order
     #np.random.shuffle(ops)
@@ -156,9 +158,9 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
 
 # -------------------------------SOLVER (A*)-------------------------------
 #A* solver - on a tree
-def a_star_tree(w,fin,heur):
+def a_star_tree(w,fin,heur,reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops)
+    getops(w, ops,reord)
     alloperations=len(ops)
 
     # if we want to randomise the operation order
@@ -199,12 +201,12 @@ def a_star_tree(w,fin,heur):
         l.pop(consider) #TEST ONLY
 
 # ---------------------------SOLVER (GREEDY)-------------------
-def greedy_tree(w,fin,heur):
+def greedy_tree(w,fin,heur,reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops)
+    getops(w, ops,reord)
 
     # if we want to randomise the operation order
-    np.random.shuffle(ops)
+    #np.random.shuffle(ops)
 
     all_operations = len(w) * len(w[0])
 
@@ -256,10 +258,30 @@ def h_tree(state,unstate,heur):
 
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w
-def getops(w, ops):
-    for well in range(0, len(w)):
-        for reagent in range(0, len(w[well])):
-            ops.append(Oper(w[well][reagent], well))
+def getops(w, ops,reord):
+    #as iddfs and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
+    if(reord==None):
+        for well in range(0, len(w)):
+            for reagent in range(0, len(w[well])):
+                ops.append(Oper(w[well][reagent], well))
+        return
+    elif (reord == 'random'):
+        for well in range(0, len(w)):
+            for reagent in range(0, len(w[well])):
+                ops.append(Oper(w[well][reagent], well))
+        np.random.shuffle(ops)
+        return
+    subsets=[]
+    convert(w,subsets)
+    if(reord=='justsubsets'):
+        for i in range(0,len(subsets)):
+            for j in range(0,len(subsets[i].wells)):
+                ops.append(Oper(subsets[i].reag,subsets[i].wells[j]))
+    elif(reord=='sametogether'):
+        sametogether(subsets, len(w))
+        for i in range(0,len(subsets)):
+            for j in range(0,len(subsets[i].wells)):
+                ops.append(Oper(subsets[i].reag,subsets[i].wells[j]))
 
 
 # -------------------------------MAIN CALL-------------------------------
