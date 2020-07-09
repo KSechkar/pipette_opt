@@ -94,9 +94,6 @@ def sametogether(subsets, totalwells):
             whichlist += 1
             inlist = 0
 
-    for i in range(0, 4):
-        print(together[i].outgoing)
-
 
 # -------------STATE-SPACE REORDERINGS----------------
 # iddfs
@@ -245,14 +242,14 @@ def reorder_a_star(origsubs, subsets, D, heur):
 def h_tree(complete, todo, D, heur):
     wt = 1  # weighing factor on the whole heuristic
     if (heur == 'countall'):  # h is the sum of all nonzero edges multiplied by the number of iterations left
-        k = 3  # weighting factor of tally vs the amount left
+        k = 1  # weighting factor of tally vs the amount left
         Dupdate(D, complete[-1])
         tally = 0
         for i in range(0, len(D)):
             for j in range(0, len(D)):
                 if (i != j):
                     tally += D[i][j]
-        answer = wt * ((tally ** k) * len(todo)) ** (1 / (k + 1))
+        answer = wt * ((tally ** k) * len(todo))# ** (1 / (k + 1))
         return answer
     elif (heur == 'leastout'):  # works analogically to the leastout sorting
         k = 2
