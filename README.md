@@ -1,5 +1,5 @@
 # pipette_opt
-Latest change: 7 July 2020 - introduced state space reorderings before tsp; tsp solver that uses linear programming; state space greedy solver.
+Latest change: 9 July 2020 - introduced reorderings before state-space methods
 
 The tsp_method program implements the TSP-based algorithm outlined in the 'PossibleSolution' document.
 The method used to solve the TSP is 2-opt of the Nearest Neighbour algorithm.
