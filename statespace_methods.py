@@ -1,14 +1,13 @@
 # STATE SPACE-BASED METHODS (SHORTEST PATH/TREE SEARCH) OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.3, 3.7.20
+# v0.0.5, 10.7.20
 
 import numpy as np
 import time
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import route_cost, cost_func, dispoper, cost_func_with_w, route_cost_with_w
-from tsp_method import convert
+from auxil import cost_func, dispoper, cost_func_with_w, route_cost_with_w, w_to_subsets, subsets_to_ops
 from tsp_reorder import sametogether
 
 # match reagents with their addresses in w
@@ -26,18 +25,20 @@ class Oper:
         strRep = self.reag + ' -> w' + str(self.well)
         return strRep
 
-#needed to construct a state space
+
+# needed to construct a state space
 class State:
-    def __init__(self,added,trace,todo,g,f):
+    def __init__(self, added, trace, todo, g, f):
         self.todo = todo
         self.trace = trace
         self.added = added
-        self.g=g
-        self.f=f
+        self.g = g
+        self.f = f
 
     def __str_self(self):
-        strRep = 'Last performed: '+str(self.last)+'\n'+str(self.added)
+        strRep = 'Last performed: ' + str(self.last) + '\n' + str(self.added)
         return strRep
+
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
@@ -62,13 +63,13 @@ def main():
     time1 = time.time()
 
     # use iddfs to solve the problem
-    #iddfs(w, fin, 2, True,'sametogether')
+    # iddfs(w, fin, 2, True,'sametogether')
 
-    #use a_star on a tree to solve the problem
-    #a_star_tree(w,fin,'optimistic')
+    # use a_star on a tree to solve the problem
+    # a_star_tree(w,fin,'optimistic')
 
-    #use greedy algorithm on a tree to solve the problem
-    greedy_tree(w,fin,'optimistic','justsubsets')
+    # use greedy algorithm on a tree to solve the problem
+    greedy_tree(w, fin, 'optimistic', 'justsubsets')
 
     dispoper(fin)
 
@@ -80,12 +81,12 @@ def main():
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
 # iddfs function
-def iddfs(w, fin, depth, with_w,reord):
+def iddfs(w, fin, depth, with_w, reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops,reord)
+    getops(w, ops, reord)
 
     # if we want to randomise the operation order
-    #np.random.shuffle(ops)
+    # np.random.shuffle(ops)
 
     all_operations = len(w) * len(w[0])
 
@@ -134,16 +135,16 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
         potcost.append(cost_func_with_w(fin, ops[i], w, added))
         # next iteration
         if (curdepth < depth and len(ops) != 1):
-            #change the inputs for next iteration
+            # change the inputs for next iteration
             added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 1
             fin.append(ops[i])
             ops.pop(i)
 
-            #call next iteration
+            # call next iteration
             potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, w, added)
 
-            #change the inputs back
-            ops.insert(i,fin[len(fin)-1])
+            # change the inputs back
+            ops.insert(i, fin[len(fin) - 1])
             fin.pop()
             added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 0
 
@@ -157,56 +158,58 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
 
 
 # -------------------------------SOLVER (A*)-------------------------------
-#A* solver - on a tree
-def a_star_tree(w,fin,heur,reord):
+# A* solver - on a tree
+def a_star_tree(w, fin, heur, reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops,reord)
-    alloperations=len(ops)
+    getops(w, ops, reord)
+    alloperations = len(ops)
 
     # if we want to randomise the operation order
-    #np.random.shuffle(ops)
+    # np.random.shuffle(ops)
 
     # starting position - state with no operations performed
-    states=[[]] #list of states in state-space under consideration
-    unstates=[ops] #list of reagents NOT added for a given state
-    g=[0] #distance from origin, mirrors states
-    f=[h_tree([],ops,heur)] #f(states[i])=g(states[i])+h(states[i]), mirrors states
-    l=[0]
+    states = [[]]  # list of states in state-space under consideration
+    unstates = [ops]  # list of reagents NOT added for a given state
+    g = [0]  # distance from origin, mirrors states
+    f = [h_tree([], ops, heur)]  # f(states[i])=g(states[i])+h(states[i]), mirrors states
+    l = [0]
 
-    while(len(states)!=0):
-        consider=f.index(min(f))
+    while (len(states) != 0):
+        consider = f.index(min(f))
 
-        #TEST ONLY
-        print(str(len(states)) + ' ' + str(h_tree(states[consider], unstates[consider], 'optimistic')) + ' ' + str(max(l)))
+        # TEST ONLY
+        print(str(len(states)) + ' ' + str(h_tree(states[consider], unstates[consider], 'optimistic')) + ' ' + str(
+            max(l)))
 
-        #print(consider)
-        if(len(states[consider])==alloperations):
+        # print(consider)
+        if (len(states[consider]) == alloperations):
             for s in states[consider]:
                 fin.append(s)
             break
 
-        #add neighbours to considered states
-        for i in range(0,len(unstates[consider])):
-            states.append(states[consider]+[unstates[consider][i]])
-            unstates.append(unstates[consider][0:i]+unstates[consider][i+1:len(unstates[consider])])
-            g.append(g[consider]+cost_func(states[consider],unstates[consider][i]))
-            f.append(g[-1]+h_tree(states[-1],unstates[-1],heur))
-            l.append(len(states[-1])) #TEST ONLY
+        # add neighbours to considered states
+        for i in range(0, len(unstates[consider])):
+            states.append(states[consider] + [unstates[consider][i]])
+            unstates.append(unstates[consider][0:i] + unstates[consider][i + 1:len(unstates[consider])])
+            g.append(g[consider] + cost_func(states[consider], unstates[consider][i]))
+            f.append(g[-1] + h_tree(states[-1], unstates[-1], heur))
+            l.append(len(states[-1]))  # TEST ONLY
 
-        #remove the state in question
+        # remove the state in question
         states.pop(consider)
         unstates.pop(consider)
         g.pop(consider)
         f.pop(consider)
-        l.pop(consider) #TEST ONLY
+        l.pop(consider)  # TEST ONLY
+
 
 # ---------------------------SOLVER (GREEDY)-------------------
-def greedy_tree(w,fin,heur,reord):
+def greedy_tree(w, fin, heur, reord):
     ops = []  # an Oper list of operations to be performed
-    getops(w, ops,reord)
+    getops(w, ops, reord)
 
     # if we want to randomise the operation order
-    #np.random.shuffle(ops)
+    # np.random.shuffle(ops)
 
     all_operations = len(w) * len(w[0])
 
@@ -218,36 +221,36 @@ def greedy_tree(w,fin,heur,reord):
 
     while (len(fin) < all_operations):
         print(len(fin))
-        nextop = greedy_tree_onestep(ops, fin,w, added,heur)
+        nextop = greedy_tree_onestep(ops, fin, w, added, heur)
         added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
 
         fin.append(ops[nextop])
         ops.pop(nextop)
 
-def greedy_tree_onestep(ops,fin,w,added,heur):
 
+def greedy_tree_onestep(ops, fin, w, added, heur):
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added)) #cost function
+        potcost.append(cost_func_with_w(fin, ops[i], w, added))  # cost function
         fin.append(ops[i])
         ops.pop(i)
-        potcost[-1]+=h_tree(fin,ops,heur) #heurstic
-        ops.insert(i,fin[-1])
+        potcost[-1] += h_tree(fin, ops, heur)  # heurstic
+        ops.insert(i, fin[-1])
         fin.pop()
 
     # act according to the determined costs
     return potcost.index(min(potcost))
 
 
-#heuristic function
-def h_tree(state,unstate,heur):
-    if(heur=='optimistic'): # h is the forecoming number of tip changes assuming we don't have to do extra changes
-        already=[]
+# heuristic function
+def h_tree(state, unstate, heur):
+    if (heur == 'optimistic'):  # h is the forecoming number of tip changes assuming we don't have to do extra changes
+        already = []
         for unop in unstate:
-            ispresent=False
+            ispresent = False
             for alread in already:
-                if(unop.reag==alread):
-                    ispresent=True
+                if (unop.reag == alread):
+                    ispresent = True
                     break
             if not ispresent:
                 already.append(unop.reag)
@@ -258,9 +261,9 @@ def h_tree(state,unstate,heur):
 
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w
-def getops(w, ops,reord):
-    #as iddfs and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
-    if(reord==None):
+def getops(w, ops, reord):
+    # as iddfs and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
+    if (reord == None):
         for well in range(0, len(w)):
             for reagent in range(0, len(w[well])):
                 ops.append(Oper(w[well][reagent], well))
@@ -271,17 +274,12 @@ def getops(w, ops,reord):
                 ops.append(Oper(w[well][reagent], well))
         np.random.shuffle(ops)
         return
-    subsets=[]
-    convert(w,subsets)
-    if(reord=='justsubsets'):
-        for i in range(0,len(subsets)):
-            for j in range(0,len(subsets[i].wells)):
-                ops.append(Oper(subsets[i].reag,subsets[i].wells[j]))
-    elif(reord=='sametogether'):
-        sametogether(subsets, len(w))
-        for i in range(0,len(subsets)):
-            for j in range(0,len(subsets[i].wells)):
-                ops.append(Oper(subsets[i].reag,subsets[i].wells[j]))
+    if (reord == 'justsubsets' or reord == 'sametogether'):
+        subsets = []
+        w_to_subsets(w, subsets)
+        if (reord == 'sametogether'):
+            sametogether(subsets, len(w))
+        subsets_to_ops(subsets, ops)
 
 
 # -------------------------------MAIN CALL-------------------------------

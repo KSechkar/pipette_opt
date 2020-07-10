@@ -1,11 +1,8 @@
 # PRE-TSP METHOD REORDERINGS
 # By Kirill Sechkar
-# v0.0.3, 8.7.20
+# v0.0.3, 10.7.20
 
 import numpy as np
-import cvxpy as cvx
-import gurobipy
-from tsp_lp_solver import tsp_lp
 from tspy import TSP
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
