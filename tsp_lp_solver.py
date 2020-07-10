@@ -37,11 +37,11 @@ def tsp_lp(D, solving):
     obj = cvx.Minimize(sum(sum(cvx.multiply(D, X))))
 
     # basic condition
-    Ones = np.ones(numnodes)
+    Ones=np.ones(numnodes)
     constraints = [(cvx.sum(X, axis=0) == Ones), (cvx.sum(X, axis=1) == Ones)]
 
     # subtour elimination
-    u = cvx.Variable(numnodes)
+    u = cvx.Variable(numnodes,integer=True)
     for i in range(1, numnodes):
         for j in range(1, numnodes):
             if i != j:
