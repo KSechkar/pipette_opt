@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.6, 8.7.20
+# v0.0.6.1, 10.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -9,11 +9,10 @@ import time
 from tspy import TSP  # TSP solver package
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
-from tsp_lp_solver import tsp_lp
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import dispoper, route_cost_with_w
+from auxil import dispoper, route_cost_with_w, jsonreader,w_to_subsets
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
 
 
@@ -85,13 +84,12 @@ def main():
 def tsp_method(w, fin, reord,filename):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
-    reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc. - needed for jsonreader
 
     # get the subsets
     if (filename == None):
-        convert(w, subsets)
+        w_to_subsets(w, subsets)
     else:
-        jsonreader(filename, subsets, reagdic)
+        dic=jsonreader(filename, subsets)
 
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
@@ -134,83 +132,11 @@ def tsp_method(w, fin, reord,filename):
     return tips
 
 
-# ---------------------FUNCTIONS INVOLVING SUBSETS-------------------------------
-# create subsets
-def convert(w, subsets):
-    # create all subsets
-    for i in range(0, len(w)):
-        for j in range(0, 4):
-            match = False
-            for k in range(0, len(subsets)):
-                if (subsets[k].reag == w[i][j]):
-                    match = True
-                    break
-            if (match):
-                subsets[k].nuwell(i)
-            else:
-                subsets.append(Ss(w[i][j], i))
-
-
+# ---------------------SUBSET DISPLAY-------------------------------
 def disp(subsets, D):
     for i in range(0, len(subsets)):
         print(subsets[i])
     print(D)
-
-
-# create subsets from file, return number of wells, update dictionary
-def jsonreader(filename, subsets, reagdic):
-    jsonfile = open(filename, "r")
-    if (jsonfile.mode == "r"):
-        jsoncontent = jsonfile.readlines()  # read the file into an array of text line strings
-
-        # preset well indicies and indices of reagents to be recorded in the subsets list
-        well = -1
-        reagnum = {'p': 0, 'r': 0, 'c': 0, 't': 0}
-
-        jsonline = 0
-        while (jsonline < len(jsoncontent)):
-            # if the new construct description starts, we assign it a new well number
-            if (jsoncontent[jsonline][3:6] == 'ss_'):
-                well += 1
-
-            # determine which reagent class we're to deal with
-            if (jsoncontent[jsonline][7:15] == 'promoter'):
-                reagclass = 'p'
-            elif (jsoncontent[jsonline][7:10] == 'rbs'):
-                reagclass = 'r'
-            elif (jsoncontent[jsonline][7:10] == 'cds'):
-                reagclass = 'c'
-            elif (jsoncontent[jsonline][7:17] == 'terminator'):
-                reagclass = 't'
-            elif (jsoncontent[jsonline][7:15] == 'backbone'):  # if it's the backbone, skip
-                jsonline += 3
-
-            # determine reagent name
-            if (jsoncontent[jsonline][9:13] == 'name'):
-                reagname = ''
-                for jsonletter in jsoncontent[jsonline][17:]:
-                    if (jsonletter != '"'):
-                        reagname += jsonletter
-                    else:
-                        break
-                # make a corresponding addition to subsets
-                match = False
-                for reagdic_it in reagdic:
-                    if (reagname == reagdic[reagdic_it]):
-                        match = True
-                        break
-                if (match):
-                    for subsets_it in subsets:
-                        if (subsets_it.reag == reagdic_it):
-                            subsets_it.nuwell(well)
-                else:
-                    reagdic_newkey = reagclass + str(reagnum[reagclass])
-                    subsets.append(Ss(reagdic_newkey, well))
-                    reagdic[reagdic_newkey] = reagname
-                    reagnum[reagclass] += 1
-
-            jsonline += 1  # increase the counter
-    return (well + 1)
 
 
 # -------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
