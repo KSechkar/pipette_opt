@@ -121,7 +121,6 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
         fin = []
         potcost.append(singlesub(origsubs[i], D.copy(), fin, 0))
         # next iteration
-        old = D.copy()
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
             # change the inputs for next iteration
@@ -134,7 +133,6 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
             # change the inputs back
             origsubs.insert(i, subsets[-1])
             subsets.pop()
-        old = D.copy()
         Drollback(D, werenew)
 
     # act according to the determined costs
