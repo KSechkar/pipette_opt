@@ -11,7 +11,7 @@ import time
 from input_generator import wgenerator
 from auxil import dispoper, route_cost_with_w
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
-from tsp_lp_solver import tsp_lp
+from m_blackwrite import tsp_lp_mosek
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Each reagent matched with a subest of wells it is added to
@@ -74,6 +74,7 @@ def main():
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     #print('The total number of pipette tips used is ' + str(tips)) #IRRELEVANT WITH LP SOLVER => COMMENTED
     print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
+    print(len(fin))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -86,10 +87,8 @@ def tsp_method(w, fin, reord,filename):
     # get the subsets
     if (filename == None):
         convert(w, subsets)
-    else:
-        jsonreader(filename, subsets, reagdic)
 
-    D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
+    D = np.zeros((len(w), len(w)),dtype=int)  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
         D[i][i] = 1000 * len(D)
 
@@ -153,62 +152,6 @@ def disp(subsets, D):
     print(D)
 
 
-# create subsets from file, return number of wells, update dictionary
-def jsonreader(filename, subsets, reagdic):
-    jsonfile = open(filename, "r")
-    if (jsonfile.mode == "r"):
-        jsoncontent = jsonfile.readlines()  # read the file into an array of text line strings
-
-        # preset well indicies and indices of reagents to be recorded in the subsets list
-        well = -1
-        reagnum = {'p': 0, 'r': 0, 'c': 0, 't': 0}
-
-        jsonline = 0
-        while (jsonline < len(jsoncontent)):
-            # if the new construct description starts, we assign it a new well number
-            if (jsoncontent[jsonline][3:6] == 'ss_'):
-                well += 1
-
-            # determine which reagent class we're to deal with
-            if (jsoncontent[jsonline][7:15] == 'promoter'):
-                reagclass = 'p'
-            elif (jsoncontent[jsonline][7:10] == 'rbs'):
-                reagclass = 'r'
-            elif (jsoncontent[jsonline][7:10] == 'cds'):
-                reagclass = 'c'
-            elif (jsoncontent[jsonline][7:17] == 'terminator'):
-                reagclass = 't'
-            elif (jsoncontent[jsonline][7:15] == 'backbone'):  # if it's the backbone, skip
-                jsonline += 3
-
-            # determine reagent name
-            if (jsoncontent[jsonline][9:13] == 'name'):
-                reagname = ''
-                for jsonletter in jsoncontent[jsonline][17:]:
-                    if (jsonletter != '"'):
-                        reagname += jsonletter
-                    else:
-                        break
-                # make a corresponding addition to subsets
-                match = False
-                for reagdic_it in reagdic:
-                    if (reagname == reagdic[reagdic_it]):
-                        match = True
-                        break
-                if (match):
-                    for subsets_it in subsets:
-                        if (subsets_it.reag == reagdic_it):
-                            subsets_it.nuwell(well)
-                else:
-                    reagdic_newkey = reagclass + str(reagnum[reagclass])
-                    subsets.append(Ss(reagdic_newkey, well))
-                    reagdic[reagdic_newkey] = reagname
-                    reagnum[reagclass] += 1
-
-            jsonline += 1  # increase the counter
-    return (well + 1)
-
-
 # -------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
 def singlesub(subset, D, fin, tips):
     # PART 1: initial preparations
@@ -217,8 +160,8 @@ def singlesub(subset, D, fin, tips):
 
     # initialise the subset's matrix subD
     subD = np.zeros((sublen + 1,
-                     sublen + 1))  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
-
+                     sublen + 1),dtype=int)  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
+    subD[0][0]=len(D)*1000
     # PART 2: select submatrix and update D as if problem for the subset is already solved
     for i_well in range(0, sublen):
         current_well = 0
@@ -233,7 +176,10 @@ def singlesub(subset, D, fin, tips):
                     j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
-    tour=tsp_lp(subD,True)
+    if(len(subD)==2):
+        tour=[0,1]
+    else:
+        tour=tsp_lp_mosek(subD)
 
     # PART 4: record the operations into the final output
     for i in range(1,len(tour)):
@@ -241,18 +187,6 @@ def singlesub(subset, D, fin, tips):
 
     # PART 5: return the adjusted number of pipette tip changes [IRRELEVANT WITH LP SOLVER => COMMENTED]
     #return tips
-
-#--------------LP SOLVER--------
-def recover(Xval):
-    node = 0
-    tour = [node]
-    while True:
-        for j in range(len(Xval)):
-            if Xval[j, tour[-1]] > 0.99:
-                if j not in tour:
-                    tour.append(j)
-                else:
-                    return tour
 
 # -------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
