@@ -2,13 +2,14 @@
 # cvxpy parts based on gist.github.com/AshNguyen/3bbaef5203f574cc5a2bad255ca59069
 #pure gurobi based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
 # By Kirill Sechkar
-# v0.0.1, 7.7.20
+# v0.1.0, 15.7.20
 
 import cvxpy as cvx
 import numpy as np
 import time
 
 import gurobipy as gp
+from gurobipy import GRB
 from itertools import combinations,product
 
 
@@ -93,67 +94,81 @@ def tsp_lp_lazy(D):
 
 
 #-----------------PURE GUROBI------------
-"""def tsp_lp(D):
-    nodes=[]
-    for i in range(0,len(D)):
+#solver
+def tsp_lp_gurobi(D):
+    # PART 1: initial preparations
+    # the array of node indices, is auxiliary
+    global nodes
+    nodes = []
+    for i in range(0, len(D)):
         nodes.append(i)
 
-    dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
+    # convert distance matrix into the dictionary format gurobi uses - note the need to transpose
+    dist = {(i, j): D[j][i] for i, j in product(nodes, nodes) if i != j}
 
-    m = gp.Model()
+    m = gp.Model() # create gurobi model
 
-    # variables telling if node 'i' is adjacent to node 'j' on the tour
-    vars = m.addVars(dist.keys(), obj=dist, vtype=gp.GRB.BINARY, name='e')
-    for i, j in vars.keys(): #REMOVE ASAP
-        m.addConstr(vars[j, i] == vars[i, j])  # edge in opposite direction
+    # create matrix indicating the trip (commonly known as X in literature)
+    vars = m.addVars(dist.keys(), obj=dist, vtype=GRB.BINARY, name='e')
 
-    # Constraints: two edges incident to each city
-    m.addConstrs(vars.sum(c, '*') == 2 for c in nodes)
+    # PART 2: add initial constraints
+    m.addConstrs(vars.sum(c, '*') == 1 for c in nodes)  # each node has 1 incoming edge
+    m.addConstrs(vars.sum('*', c) == 1 for c in nodes)  # each node has 1 outgoing edge\
 
-    # Optimize the model
+    # PART 3: optimise the model
     m._vars = vars
     m.Params.lazyConstraints = 1
-    m.optimize(subtourelim)
+    m.optimize(subtourelim)  # optimise while adding lazy subtour-eliminating constraints
 
-    #get tour
+    # PART 4: reconstruct tour from m.vars (matrix X in literature)
     vals = m.getAttr('x', vars)
-    selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)
+    selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
+    tour = subtour(selected) # get tour from selected edges
 
-    tour = subtour(selected,nodes)
-    assert len(tour) == len(nodes)
-    print(tour)
-    return 0
+    assert len(tour) == len(nodes)  # sanity check that the tour is actually complete
 
-# callback - lazy subtour elimination
-def subtourelim(model, where,nodes):
-    if where == gp.GRB.Callback.MIPSOL:
+    """
+    TESTING ONLY (needs tspy package):
+    tsp = TSP()
+    tsp.read_mat(D)
+    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+    tour1 = tsp.get_approx_solution(two_opt)
+    print(tour1)
+    print(get_cost(tour1, tsp))
+    """
+
+    return tour
+
+
+# callback function, uses lazy constraints to eliminate sub-tours
+def subtourelim(model, where):
+    if where == GRB.Callback.MIPSOL:
         # make a list of edges selected in the solution
         vals = model.cbGetSolution(model._vars)
-        selected = gp.tuplelist((i, j) for i, j in model._vars.keys()
-                             if vals[i, j] > 0.5)
-        # find the shortest cycle in the selected edge list
+        selected = gp.tuplelist((i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5)
+        # find the shortest cycle (subtour) in the selected edge list
         tour = subtour(selected)
         if len(tour) < len(nodes):
-            # add subtour elimination constr. for every pair of cities in subtour
-            model.cbLazy(gp.quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
-                         <= len(tour)-1)
+            # add subtour elimination constraint for the subtour
+            model.cbLazy(gp.quicksum(model._vars[i, j] + model._vars[j, i] for i, j in combinations(tour, 2)) <= len(tour) - 0.5)
 
-# Given a tuplelist of edges, find the shortest subtour
-def subtour(edges,nodes):
+
+# find the shortest subtour among edges selected by the solution (for a final solution, this is our desired tour)
+def subtour(edges):
     unvisited = nodes[:]
-    cycle = nodes[:] # Dummy - guaranteed to be replaced
-    while unvisited:  # true if list is non-empty
+    cycle = nodes[:]  # dummy - will be replaced
+    while (len(unvisited)!=0):
         thiscycle = []
-        neighbors = unvisited
-        while neighbors:
-            current = neighbors[0]
+        neighbours = unvisited
+        while (len(neighbours)!=0):
+            current = neighbours[0]
             thiscycle.append(current)
             unvisited.remove(current)
-            neighbors = [j for i, j in edges.select(current, '*')
+            neighbours = [j for i, j in edges.select(current, '*')
                          if j in unvisited]
         if len(thiscycle) <= len(cycle):
-            cycle = thiscycle # New shortest subtour
-    return cycle"""
+            cycle = thiscycle  # new shortest subtour
+    return cycle
 
 
 #-----------------MAIN (TESTING ONLY)------------
