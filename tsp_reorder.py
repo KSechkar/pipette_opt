@@ -110,7 +110,6 @@ def reorder_iddfs(origsubs, subsets, D, depth):
         nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
-        fin = []
         Dupdate(D, subsets[-1])
 
 
@@ -118,8 +117,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
-        fin = []
-        potcost.append(singlesub(origsubs[i], D.copy(), fin, 0))
+        potcost.append(solveforcost(origsubs[i], D))
         # next iteration
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
@@ -169,9 +167,7 @@ def reorder_greedy_onestep(origsubs, subsets, D, heur):
     potcost = []
     for i in range(0, len(origsubs)):
         # cost function component
-        fin = []
-        Dcopy = D.copy()
-        potcost.append(singlesub(origsubs[i], Dcopy, fin, 0))
+        potcost.append(solveforcost(origsubs[i], D))
 
         # heuristic component
         subsets.append(origsubs[i])
@@ -215,11 +211,10 @@ def reorder_a_star(origsubs, subsets, D, heur):
 
         # add neighbours to considered states
         for i in range(0, len(unstates[consider])):
-            fin = []
             states.append(states[consider] + [unstates[consider][i]])
             d.append(D.copy())
             unstates.append(unstates[consider][0:i] + unstates[consider][i + 1:len(unstates[consider])])
-            g.append(g[consider] + singlesub(unstates[consider][i], d[-1], fin, 0))
+            g.append(g[consider] + solveforcost(unstates[consider][i], d[-1]))
             h.append(h_tree(states[-1], unstates[-1], d[-1], heur))
             f.append(g[-1] + h[-1])
             Dupdate(d[-1], states[-1][-1])
@@ -258,7 +253,6 @@ def h_tree(complete, todo, D, heur):
 # -----------STATE-SPACE auxiliaries--------------
 # update D according to the subset
 def Dupdate(D, subset):
-    old = D.copy()
     werenew = []
     sublen = len(subset.wells)
     for i_well in range(0, sublen):
@@ -281,8 +275,8 @@ def Drollback(D, werenew):
         D[werenew[i][0]][werenew[i][1]] -= 1
 
 
-# copy of function from tsp_method [living here temporary] to get the costs
-def singlesub(subset, D, fin, tips):
+# obtain a solution for given subset to determine its cost for sure
+def solveforcost(subset, D):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -296,13 +290,9 @@ def singlesub(subset, D, fin, tips):
         current_well = 0
         for j_D in range(0, len(D)):
             if (j_D == subset.wells[current_well]):
-                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][
-                    j_D]  # select the edges within the subset into the submatrix
+                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D]  # select the edges within the subset into the submatrix
                 if (current_well < sublen - 1):
                     current_well += 1
-            else:
-                D[subset.wells[i_well]][
-                    j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
     tsp = TSP()
@@ -310,26 +300,9 @@ def singlesub(subset, D, fin, tips):
 
     two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
     tour = tsp.get_approx_solution(two_opt)
-    # print(tour)
 
-    # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
-    # find the position of the zero node in the tour
-    i = 0
-    while (tour[i] != 0):
-        i += 1
-    # record the part after the zero node
-    i += 1
-    while (i < len(tour) - 1):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
-    # record the part 'before'the zero node
-    i = 0
-    while (tour[i] != 0):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
-
-    # PART 5: return the adjusted number of pipette tip changes
-    return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
+    # PART 4: return the tour  cost
+    return get_cost(tour, tsp)
 
 
 # -------------------------------MAIN CALL-------------------------------
