@@ -1,14 +1,11 @@
 # PRE-TSP METHOD REORDERINGS
 # By Kirill Sechkar
-# v0.0.3, 8.7.20
+# v0.1.0.lp, 15.7.20
 
 import numpy as np
-import cvxpy as cvx
-import gurobipy
-from tsp_lp_solver import tsp_lp
+from tsp_lp_solver import tsp_lp_gurobi
 from tspy import TSP
 from tspy.solvers.utils import get_cost
-from tspy.solvers import TwoOpt_solver
 
 
 # ------------------CLASS DEFINITIONS---------------
@@ -310,30 +307,17 @@ def singlesub(subset, D, fin, tips):
                     j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
-    tsp = TSP()
-    tsp.read_mat(subD)
-
-    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
-    tour = tsp.get_approx_solution(two_opt)
-    # print(tour)
+    tour=tsp_lp_gurobi(subD)
 
     # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
     # find the position of the zero node in the tour
-    i = 0
-    while (tour[i] != 0):
-        i += 1
-    # record the part after the zero node
-    i += 1
-    while (i < len(tour) - 1):
+    for i in range(1,len(tour)):
         fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
-    # record the part 'before'the zero node
-    i = 0
-    while (tour[i] != 0):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
 
     # PART 5: return the adjusted number of pipette tip changes
+    tour.append(0) # accounts for notation difference between tspy and gurobi
+    tsp = TSP()
+    tsp.read_mat(subD)
     return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
 
 

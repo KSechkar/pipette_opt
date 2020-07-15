@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.6, 8.7.20
+# v0.1.0.lp, 15.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -11,7 +11,7 @@ import time
 from input_generator import wgenerator
 from auxil import dispoper, route_cost_with_w
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
-from m_blackwrite import tsp_lp_mosek
+from tsp_lp_solver import tsp_lp_gurobi
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Each reagent matched with a subest of wells it is added to
@@ -74,7 +74,6 @@ def main():
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     #print('The total number of pipette tips used is ' + str(tips)) #IRRELEVANT WITH LP SOLVER => COMMENTED
     print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
-    print(len(fin))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -88,7 +87,7 @@ def tsp_method(w, fin, reord,filename):
     if (filename == None):
         convert(w, subsets)
 
-    D = np.zeros((len(w), len(w)),dtype=int)  # initialise the matrix of distances, i.e. our graph of wells
+    D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
         D[i][i] = 1000 * len(D)
 
@@ -160,7 +159,7 @@ def singlesub(subset, D, fin, tips):
 
     # initialise the subset's matrix subD
     subD = np.zeros((sublen + 1,
-                     sublen + 1),dtype=int)  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
+                     sublen + 1))  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
     subD[0][0]=len(D)*1000
     # PART 2: select submatrix and update D as if problem for the subset is already solved
     for i_well in range(0, sublen):
@@ -179,7 +178,7 @@ def singlesub(subset, D, fin, tips):
     if(len(subD)==2):
         tour=[0,1]
     else:
-        tour=tsp_lp_mosek(subD)
+        tour=tsp_lp_gurobi(subD)
 
     # PART 4: record the operations into the final output
     for i in range(1,len(tour)):
