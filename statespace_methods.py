@@ -62,14 +62,17 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # use iddfs to solve the problem
-    # iddfs(w, fin, 2, True,'sametogether')
+    # use nearest-neighbour tree search to solve the problem
+    # iddfs(w, fin, 1, True,'sametogether')
 
-    # use a_star on a tree to solve the problem
+    # use iddfs to solve the problem
+    iddfs(w, fin, 2, True,'sametogether')
+
+    # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    greedy_tree(w, fin, 'optimistic', 'justsubsets')
+    #greedy_tree(w, fin, 'optimistic', 'justsubsets')
 
     dispoper(fin)
 
@@ -98,7 +101,7 @@ def iddfs(w, fin, depth, with_w, reord):
         added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
-        print(len(fin))
+        #print(len(fin))
         if (with_w):
             nextop = iddfs_oneiter_with_w(ops, fin, 1, depth, w, added)
             added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
@@ -178,8 +181,7 @@ def a_star_tree(w, fin, heur, reord):
         consider = f.index(min(f))
 
         # TEST ONLY
-        print(str(len(states)) + ' ' + str(h_tree(states[consider], unstates[consider], 'optimistic')) + ' ' + str(
-            max(l)))
+        #print(str(len(states)) + ' ' + str(h_tree(states[consider], unstates[consider], 'optimistic')) + ' ' + str(max(l)))
 
         # print(consider)
         if (len(states[consider]) == alloperations):
@@ -220,7 +222,7 @@ def greedy_tree(w, fin, heur, reord):
     added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
-        print(len(fin))
+        #print(len(fin))
         nextop = greedy_tree_onestep(ops, fin, w, added, heur)
         added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
 

@@ -105,7 +105,7 @@ def reorder_iddfs(origsubs, subsets, D, depth):
     Dupdate(D, subsets[-1])
 
     while (len(subsets) < all_operations):
-        print(len(subsets))
+        #print(len(subsets))
 
         nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth)
         subsets.append(origsubs[nextop])
@@ -154,7 +154,7 @@ def reorder_greedy(origsubs, subsets, D, heur):
     Dupdate(D, subsets[0])
 
     while (len(subsets) < all_operations):
-        print(len(subsets))
+        #print(len(subsets))
 
         nextop = reorder_greedy_onestep(origsubs, subsets, D, heur)
         subsets.append(origsubs[nextop])
@@ -172,7 +172,7 @@ def reorder_greedy_onestep(origsubs, subsets, D, heur):
         # heuristic component
         subsets.append(origsubs[i])
         origsubs.pop(i)
-        print(h_tree(subsets, origsubs, D.copy(), heur))  # TEST ONLY
+        #print(h_tree(subsets, origsubs, D.copy(), heur))  # TEST ONLY
         potcost[-1] += h_tree(subsets, origsubs, D.copy(), heur)
         origsubs.insert(i, subsets[-1])
         subsets.pop()
@@ -200,10 +200,10 @@ def reorder_a_star(origsubs, subsets, D, heur):
         consider = f.index(min(f))
 
         # TEST ONLY
-        if (len(states[consider]) != 0):
-            print(str(len(states)) + ' ' + str(h[consider]) + ' ' + str(max(l)))
+        #if (len(states[consider]) != 0):
+            #print(str(len(states)) + ' ' + str(h[consider]) + ' ' + str(max(l)))
 
-        print(consider)
+        #print(consider)
         if (len(states[consider]) == alloperations):
             for s in states[consider]:
                 subsets.append(s)

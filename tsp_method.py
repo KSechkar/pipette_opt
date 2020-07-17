@@ -73,8 +73,8 @@ def main():
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    print('The total number of pipette tips used is ' + str(tips))
-    print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
+    print('The total number of pipette tips used is (determined by the solver) ' + str(tips))
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
