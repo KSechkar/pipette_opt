@@ -1,0 +1,39 @@
+INSTRUCTIONS: HOW TO TEST THE SOLVERS
+
+TSP-BASED METHOD
+1. Open tsp_method.py
+2. Comment line 64 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
+3. To select which reordering to run before solving the TSPs, in line 70 change the 3rd argument of tsp_method function (reord):
+	- 'random' randomly reorder the subsets
+	- 'samethogether' combine all p, all c, all r and all t subsets into four blocks, rearrange these 4 blocks with leastout
+	- 'leastout' the subsets causing the least number of new weight-1 edges go first
+	- 'nearest neighbour' use nearest neighbour tree search to determine the order of subsets
+	- 'iddfs depth 2' use iterative-deepening depth-first tree search to determine the order of subsets
+	- 'greedy' use greedy tree search to determine the order of subsets
+		- only 'countall' heurstic function gives good results, so please keep the heur argument of reorder_greedy function as it is
+	- 'a*' !!!Hardly works and not recommended
+4. Run the program. The output sequence of operations fin (reagent name->well name) will be printed
+P.S. The main branch uses tspy package for solving the problem. Go to the lp_for_tsp branch to try linear programming methods. 
+In line 181, choose which solver to use, i.e. call the function:
+	- tsp_lp_mtz() Miller-Tucker-Zemlin formulation using cvxpy
+	- tsp_lp_lazy() lazy formulation using cvxpy
+	- tsp_lp_gurobi() pure GUROBI lazy formulation !!!Only option that works on 96 wells in a reasonable time 
+
+STATE-SPACE BASED METHODS
+1. Open statespace_methods.py
+2. Like for TSP, comment line 60 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
+3. To select which solver to run, decomment EXACTLY ONE function call in lines 65-75. The comments above function calls explain what each of the function does
+	- only 'optimistic' heursistic gives good results, so please keep the heur argument of greedy_tree as it is
+4. Run the program. The output sequence of operations fin (reagent name->well name) will be printed
+
+CREATING .CSV INPUTS
+1. Create a folder 'inputs'
+2. Running test_inp.py will fill the input folder with 95 .csv files - for n wells, (2<=n<=96), the file 100i_nw_6p_6r_3c_4t.csv will contain 100 inputs n wells each.
+
+TESTING WITH
+1. Create a folder 'results'
+2. Open testing.py
+3. In lines 17-18 set MAXI and MINI. The program will run for all cases with n wells, MINI<=n<=(MAXI-1).
+4. In line 19 set READ. For each n, the program will run for m=READ different inputs. READ=1 will cause an error in calculation of st. dev. and should be avoided
+5. Run testing.py. 
+6. Outputs will be recorded into means.csv, medians.csv and stdevs.csv in the results folder
