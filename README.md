@@ -1,5 +1,5 @@
 # pipette_opt
-Latest change: 10 July 2020 - json reader reworked and moved to auxil. auxil now has input type converters (some created, some moved here from other functions)
+Latest change: 17 July 2020 - programs for testing the performance added
 
 The tsp_method program implements the TSP-based algorithm outlined in the 'PossibleSolution' document.
 The method used to solve the TSP is 2-opt of the Nearest Neighbour algorithm.
@@ -16,3 +16,12 @@ The input_generator program contains fucntions that create random inputs used fo
 
 The auxil program contains auxiliary functions used by BOTH methods
 Currently, it has a display function, as well as route/single operation cost functions of two different kinds.
+
+***
+Development purposes only
+
+howto_manual.txt outlines how to launch and test solvers
+
+The test_inp program creates test input .csv files
+
+The testing program runs on .csv inputs and writes down results
