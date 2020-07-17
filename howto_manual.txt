@@ -30,8 +30,9 @@ CREATING .CSV INPUTS
 1. Create a folder 'inputs'
 2. Running test_inp.py will fill the input folder with 95 .csv files - for n wells, (2<=n<=96), the file 100i_nw_6p_6r_3c_4t.csv will contain 100 inputs n wells each.
 
-TESTING WITH
+TESTING WITH .CSV INPUTS
 1. Create a folder 'results'
+2. Comment the print statements in tsp_method.py (lines 75-77) and statespace_methods.py (lines 80-82)
 2. Open testing.py
 3. In lines 17-18 set MAXI and MINI. The program will run for all cases with n wells, MINI<=n<=(MAXI-1).
 4. In line 19 set READ. For each n, the program will run for m=READ different inputs. READ=1 will cause an error in calculation of st. dev. and should be avoided
