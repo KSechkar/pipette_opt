@@ -34,10 +34,22 @@ class Ss:
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
 
+
 # -----------------------RESULTS PRINTING-----------------------------
 def dispoper(fin):
     for i in range(0, len(fin)):
         print(fin[i])
+
+
+# -----------------------RESULTS PRINTING-----------------------------
+# need to clairfy if the last collection has an air gap after it
+# currently assumed that NO
+def capac(pipcap, dose, airgap):
+    doseandgap = dose + airgap
+    cap = int(pipcap / doseandgap)  # get how many collections followed by gap will fit
+    if (dose <= (pipcap - cap * doseandgap)):  # see if a final collection without air gap would also fit
+        cap += 1
+    return cap
 
 
 # ---------------------------COST FUNCTIONS------------------------------------
@@ -82,18 +94,19 @@ def cost_func(fin, op):
 
 
 # alterative way to determine operation cost by also knowing the the input well array
-def route_cost_with_w(fin,w):
+def route_cost_with_w(fin,w,cap):
     added = np.zeros((len(w), len(w[0]))) #tells which reagents were added to which well
 
     #for the first operation in fin
     cost=1
     added[fin[0].well][ADDRESS[fin[0].reag[0]]]=1
     for i in range(1, len(fin)):
-        cost+=cost_func_with_w(fin[0:i],fin[i],w,added)
+        cost += cost_func_with_w(fin[0:i], fin[i], w, added,cap)
         added[fin[i].well][ADDRESS[fin[i].reag[0]]] = 1
     return cost
 
-def cost_func_with_w(fin,op,w,added):
+
+def cost_func_with_w(fin,op,w,added,cap):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
     if(lastindex<0): #if no previous operations have been performed, we obviously need to put on a tip
@@ -105,11 +118,25 @@ def cost_func_with_w(fin,op,w,added):
     if(fin[lastindex].reag!=op.reag):
         cost=1
     else:
-        #check  on all 3 remaining
+        # check on all 3 remaining reagent types
         cost=0
         for i in range(0,len(w[0])):
             if(w[lastwell][i]!=fin[lastindex].reag):
                 if not (added[lastwell][i]==0 or (w[lastwell][i]==w[op.well][i] and added[op.well][i]==1)):
+                    cost=1
+
+        # take into account pipette capacity
+        if(cap!=None):
+            #only need to do that if cost is ostensibly 0 and the number of operations is less than the capacity
+            if((cost==0) and (len(fin)>=cap)):
+                # check if the next dose of vector doesn't fit into the pipette due to capacity limitations
+                capexceed=True # tells if capacity exceeded
+                for i in range(0,cap):
+                    if(fin[lastindex-i].reag!=op.reag):
+                        capexceed=False
+                        break
+                # if capacity is exceeded, will have to change tip
+                if(capexceed):
                     cost=1
 
     return cost
@@ -165,6 +192,17 @@ def subsets_to_ops(subsets,ops):
         for j in range(0, len(subsets[i].wells)):
             ops.append(Oper(subsets[i].reag, subsets[i].wells[j]))
 
+def ops_to_subsets(ops, subsets):
+    for op in ops:
+        ispresent = False
+        for subset in subsets:
+            if (op.reag == subset.reag):
+                subset.nuwell(op.well)
+                ispresent = True
+                break
+        if not ispresent:
+            subsets.append(Ss(op.reag,op.well))
+
 
 # -------------------------------JSON READER-------------------------------
 # pass an empty w or subsets if you want them filled; pass None if not
@@ -219,4 +257,5 @@ def jsonreader(filename, w, subsets):
 
     # return dictionary that allows to decode the input information from the outputs
     return dic
+
 
