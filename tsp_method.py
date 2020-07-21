@@ -6,15 +6,12 @@
 
 import numpy as np
 import time
-from tspy import TSP  # TSP solver package
-from tspy.solvers.utils import get_cost
-from tspy.solvers import TwoOpt_solver
 
 # import functions from own files
 from input_generator import wgenerator
 from auxil import dispoper, route_cost_with_w, jsonreader,w_to_subsets
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
-
+from tsp_lp_solver import tsp_lp_gurobi
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Each reagent matched with a subest of wells it is added to
@@ -73,8 +70,8 @@ def main():
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    print('The total number of pipette tips used is (determined by the solver) ' + str(tips))
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w)))
+    #print('The total number of pipette tips used is ' + str(tips)) #IRRELEVANT WITH LP SOLVER => COMMENTED
+    print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -124,8 +121,8 @@ def tsp_method(w, fin, reord,filename):
 
     # implement the algorithm
     for i in range(0, len(subsets)):
-        #print(str(i) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
         tips = singlesub(subsets[i], D, fin, tips)
+        print(str(i+1) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
 
     return tips
 
@@ -146,7 +143,7 @@ def singlesub(subset, D, fin, tips):
     # initialise the subset's matrix subD
     subD = np.zeros((sublen + 1,
                      sublen + 1))  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
-
+    subD[0][0]=len(D)*1000
     # PART 2: select submatrix and update D as if problem for the subset is already solved
     for i_well in range(0, sublen):
         current_well = 0
@@ -161,32 +158,19 @@ def singlesub(subset, D, fin, tips):
                     j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
-    tsp = TSP()
-    tsp.read_mat(subD)
+    if(len(subD)==2):
+        tour=[0,1]
+    else:
+        tour=tsp_lp_gurobi(subD)
 
-    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
-    tour = tsp.get_approx_solution(two_opt)
-
-    # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
-    # find the position of the zero node in the tour
-    i = 0
-    while (tour[i] != 0):
-        i += 1
-    # record the part after the zero node
-    i += 1
-    while (i < len(tour) - 1):
+    # PART 4: record the operations into the final output
+    for i in range(1,len(tour)):
         fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
-    # record the part 'before'the zero node
-    i = 0
-    while (tour[i] != 0):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-        i += 1
 
-    # PART 5: return the adjusted number of pipette tip changes
-    return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
-
+    # PART 5: return the adjusted number of pipette tip changes [IRRELEVANT WITH LP SOLVER => COMMENTED]
+    #return tips
 
 # -------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
     main()
+

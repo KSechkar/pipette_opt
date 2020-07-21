@@ -1,11 +1,12 @@
 # PRE-TSP METHOD REORDERINGS
 # By Kirill Sechkar
-# v0.0.3, 10.7.20
+# v0.1.0.lp, 15.7.20
 
 import numpy as np
+from tsp_lp_solver import tsp_lp_gurobi
+
 from tspy import TSP
 from tspy.solvers.utils import get_cost
-from tspy.solvers import TwoOpt_solver
 
 
 # ------------------CLASS DEFINITIONS---------------
@@ -295,14 +296,18 @@ def solveforcost(subset, D):
                     current_well += 1
 
     # PART 3: solve TSP for the subset
+    tour=tsp_lp_gurobi(subD)
+
+    # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
+    # find the position of the zero node in the tour
+    for i in range(1,len(tour)):
+        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
+
+    # PART 5: return the adjusted number of pipette tip changes
+    tour.append(0) # accounts for notation difference between tspy and gurobi
     tsp = TSP()
     tsp.read_mat(subD)
-
-    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
-    tour = tsp.get_approx_solution(two_opt)
-
-    # PART 4: return the tour  cost
-    return get_cost(tour, tsp)
+    return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
 
 
 # -------------------------------MAIN CALL-------------------------------
