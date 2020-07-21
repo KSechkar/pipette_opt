@@ -4,6 +4,7 @@
 
 import numpy as np
 from tsp_lp_solver import tsp_lp_gurobi
+
 from tspy import TSP
 from tspy.solvers.utils import get_cost
 
@@ -105,12 +106,11 @@ def reorder_iddfs(origsubs, subsets, D, depth):
     Dupdate(D, subsets[-1])
 
     while (len(subsets) < all_operations):
-        print(len(subsets))
+        #print(len(subsets))
 
         nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
-        fin = []
         Dupdate(D, subsets[-1])
 
 
@@ -118,10 +118,8 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
-        fin = []
-        potcost.append(singlesub(origsubs[i], D.copy(), fin, 0))
+        potcost.append(solveforcost(origsubs[i], D))
         # next iteration
-        old = D.copy()
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
             # change the inputs for next iteration
@@ -134,7 +132,6 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
             # change the inputs back
             origsubs.insert(i, subsets[-1])
             subsets.pop()
-        old = D.copy()
         Drollback(D, werenew)
 
     # act according to the determined costs
@@ -158,7 +155,7 @@ def reorder_greedy(origsubs, subsets, D, heur):
     Dupdate(D, subsets[0])
 
     while (len(subsets) < all_operations):
-        print(len(subsets))
+        #print(len(subsets))
 
         nextop = reorder_greedy_onestep(origsubs, subsets, D, heur)
         subsets.append(origsubs[nextop])
@@ -171,14 +168,12 @@ def reorder_greedy_onestep(origsubs, subsets, D, heur):
     potcost = []
     for i in range(0, len(origsubs)):
         # cost function component
-        fin = []
-        Dcopy = D.copy()
-        potcost.append(singlesub(origsubs[i], Dcopy, fin, 0))
+        potcost.append(solveforcost(origsubs[i], D))
 
         # heuristic component
         subsets.append(origsubs[i])
         origsubs.pop(i)
-        print(h_tree(subsets, origsubs, D.copy(), heur))  # TEST ONLY
+        #print(h_tree(subsets, origsubs, D.copy(), heur))  # TEST ONLY
         potcost[-1] += h_tree(subsets, origsubs, D.copy(), heur)
         origsubs.insert(i, subsets[-1])
         subsets.pop()
@@ -206,10 +201,10 @@ def reorder_a_star(origsubs, subsets, D, heur):
         consider = f.index(min(f))
 
         # TEST ONLY
-        if (len(states[consider]) != 0):
-            print(str(len(states)) + ' ' + str(h[consider]) + ' ' + str(max(l)))
+        #if (len(states[consider]) != 0):
+            #print(str(len(states)) + ' ' + str(h[consider]) + ' ' + str(max(l)))
 
-        print(consider)
+        #print(consider)
         if (len(states[consider]) == alloperations):
             for s in states[consider]:
                 subsets.append(s)
@@ -217,11 +212,10 @@ def reorder_a_star(origsubs, subsets, D, heur):
 
         # add neighbours to considered states
         for i in range(0, len(unstates[consider])):
-            fin = []
             states.append(states[consider] + [unstates[consider][i]])
             d.append(D.copy())
             unstates.append(unstates[consider][0:i] + unstates[consider][i + 1:len(unstates[consider])])
-            g.append(g[consider] + singlesub(unstates[consider][i], d[-1], fin, 0))
+            g.append(g[consider] + solveforcost(unstates[consider][i], d[-1]))
             h.append(h_tree(states[-1], unstates[-1], d[-1], heur))
             f.append(g[-1] + h[-1])
             Dupdate(d[-1], states[-1][-1])
@@ -260,7 +254,6 @@ def h_tree(complete, todo, D, heur):
 # -----------STATE-SPACE auxiliaries--------------
 # update D according to the subset
 def Dupdate(D, subset):
-    old = D.copy()
     werenew = []
     sublen = len(subset.wells)
     for i_well in range(0, sublen):
@@ -283,8 +276,8 @@ def Drollback(D, werenew):
         D[werenew[i][0]][werenew[i][1]] -= 1
 
 
-# copy of function from tsp_method [living here temporary] to get the costs
-def singlesub(subset, D, fin, tips):
+# obtain a solution for given subset to determine its cost for sure
+def solveforcost(subset, D):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -298,13 +291,9 @@ def singlesub(subset, D, fin, tips):
         current_well = 0
         for j_D in range(0, len(D)):
             if (j_D == subset.wells[current_well]):
-                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][
-                    j_D]  # select the edges within the subset into the submatrix
+                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D]  # select the edges within the subset into the submatrix
                 if (current_well < sublen - 1):
                     current_well += 1
-            else:
-                D[subset.wells[i_well]][
-                    j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
     tour=tsp_lp_gurobi(subD)

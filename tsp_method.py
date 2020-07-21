@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.1.0.lp, 15.7.20
+# v0.0.6.1, 10.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -9,7 +9,7 @@ import time
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import dispoper, route_cost_with_w
+from auxil import dispoper, route_cost_with_w, jsonreader,w_to_subsets
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
 from tsp_lp_solver import tsp_lp_gurobi
 
@@ -51,8 +51,6 @@ w = [['p1', 'r2', 'c4', 't2'],
      ['p2', 'r3', 'c1', 't1']]
 
 
-# w=[['p3', 'r5', 'c2', 't0'], ['p5', 'r2', 'c0', 't1'], ['p1', 'r5', 'c2', 't0'], ['p1', 'r5', 'c2', 't1'], ['p3', 'r3', 'c2', 't1'], ['p2', 'r5', 'c0', 't3'], ['p1', 'r4', 'c2', 't2'], ['p0', 'r0', 'c1', 't3'], ['p0', 'r1', 'c1', 't2'], ['p3', 'r4', 'c2', 't3'], ['p1', 'r0', 'c1', 't1'], ['p5', 'r3', 'c2', 't1'], ['p4', 'r0', 'c1', 't1'], ['p5', 'r0', 'c0', 't1'], ['p4', 'r5', 'c0', 't1'], ['p1', 'r0', 'c1', 't3'], ['p5', 'r4', 'c1', 't0'], ['p0', 'r3', 'c0', 't3'], ['p1', 'r1', 'c2', 't1'], ['p5', 'r3', 'c2', 't1'], ['p5', 'r2', 'c1', 't1'], ['p4', 'r3', 'c0', 't1'], ['p3', 'r5', 'c0', 't1'], ['p2', 'r0', 'c1', 't1'], ['p5', 'r2', 'c0', 't2'], ['p3', 'r4', 'c2', 't1'], ['p1', 'r3', 'c1', 't0'], ['p5', 'r3', 'c0', 't3'], ['p0', 'r0', 'c0', 't3'], ['p2', 'r3', 'c1', 't3'], ['p2', 'r5', 'c1', 't3'], ['p3', 'r3', 'c0', 't1'], ['p5', 'r5', 'c1', 't3'], ['p3', 'r1', 'c0', 't1'], ['p3', 'r1', 'c1', 't1'], ['p4', 'r5', 'c2', 't2'], ['p0', 'r3', 'c1', 't2'], ['p1', 'r5', 'c1', 't1'], ['p0', 'r5', 'c1', 't0'], ['p2', 'r1', 'c2', 't3'], ['p5', 'r2', 'c1', 't2'], ['p2', 'r1', 'c1', 't2'], ['p0', 'r0', 'c0', 't0'], ['p5', 'r4', 'c1', 't2'], ['p4', 'r0', 'c0', 't0'], ['p2', 'r3', 'c2', 't2'], ['p3', 'r1', 'c0', 't1'], ['p5', 'r1', 'c2', 't0'], ['p1', 'r5', 'c1', 't0'], ['p0', 'r5', 'c1', 't3'], ['p3', 'r0', 'c2', 't2'], ['p2', 'r2', 'c0', 't0'], ['p0', 'r5', 'c2', 't0'], ['p1', 'r4', 'c0', 't3'], ['p2', 'r2', 'c0', 't2'], ['p1', 'r2', 'c2', 't0'], ['p0', 'r5', 'c1', 't0'], ['p3', 'r3', 'c2', 't0'], ['p2', 'r0', 'c0', 't2'], ['p2', 'r2', 'c0', 't2'], ['p0', 'r5', 'c1', 't3'], ['p3', 'r2', 'c2', 't0'], ['p4', 'r0', 'c1', 't1'], ['p2', 'r1', 'c0', 't0'], ['p3', 'r1', 'c1', 't2'], ['p4', 'r1', 'c1', 't2'], ['p4', 'r1', 'c1', 't1'], ['p1', 'r3', 'c1', 't0'], ['p4', 'r1', 'c2', 't3'], ['p0', 'r2', 'c1', 't3'], ['p2', 'r3', 'c2', 't3'], ['p5', 'r3', 'c1', 't3'], ['p4', 'r0', 'c1', 't0'], ['p4', 'r5', 'c1', 't1'], ['p0', 'r2', 'c1', 't0'], ['p0', 'r1', 'c1', 't0'], ['p5', 'r0', 'c0', 't3'], ['p5', 'r4', 'c0', 't0'], ['p5', 'r5', 'c2', 't2'], ['p2', 'r2', 'c1', 't2'], ['p1', 'r1', 'c1', 't1'], ['p2', 'r5', 'c1', 't1'], ['p1', 'r2', 'c0', 't1'], ['p5', 'r5', 'c0', 't1'], ['p2', 'r3', 'c0', 't1'], ['p4', 'r4', 'c0', 't2'], ['p5', 'r4', 'c1', 't1'], ['p0', 'r4', 'c0', 't3'], ['p3', 'r1', 'c1', 't1'], ['p4', 'r1', 'c2', 't2'], ['p5', 'r4', 'c0', 't0'], ['p0', 'r3', 'c1', 't3'], ['p0', 'r4', 'c2', 't1'], ['p2', 'r4', 'c2', 't2'], ['p2', 'r5', 'c2', 't1'], ['p3', 'r2', 'c2', 't3']]
-
 # -------------------------------MAIN-------------------------------
 def main():
     fin = []  # final array where the operations are to be recorded
@@ -81,11 +79,12 @@ def main():
 def tsp_method(w, fin, reord,filename):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
-    reagdic = {}  # dictionary that matches actual reagent names with p1, r2, c0, etc. - needed for jsonreader
 
     # get the subsets
     if (filename == None):
-        convert(w, subsets)
+        w_to_subsets(w, subsets)
+    else:
+        dic = jsonreader(filename, subsets=subsets, w=None)
 
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
@@ -128,23 +127,7 @@ def tsp_method(w, fin, reord,filename):
     return tips
 
 
-# ---------------------FUNCTIONS INVOLVING SUBSETS-------------------------------
-# create subsets
-def convert(w, subsets):
-    # create all subsets
-    for i in range(0, len(w)):
-        for j in range(0, 4):
-            match = False
-            for k in range(0, len(subsets)):
-                if (subsets[k].reag == w[i][j]):
-                    match = True
-                    break
-            if (match):
-                subsets[k].nuwell(i)
-            else:
-                subsets.append(Ss(w[i][j], i))
-
-
+# ---------------------SUBSET DISPLAY-------------------------------
 def disp(subsets, D):
     for i in range(0, len(subsets)):
         print(subsets[i])

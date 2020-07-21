@@ -25,7 +25,7 @@ def wgenerator(howmany_inputs, howmany_p, howmany_r, howmany_c, howmany_t):
 # create a .csv file listing randomly generated inputs
 def inputlist(hm_inputs, hm_wells, hm_p, hm_r, hm_c, hm_t):
     # create file name
-    filename = str(hm_inputs) + 'i_' + str(hm_wells) + 'w_' + str(hm_p) + 'p_' + str(hm_r) + 'r_' + str(
+    filename = 'input/' + str(hm_inputs) + 'i_' + str(hm_wells) + 'w_' + str(hm_p) + 'p_' + str(hm_r) + 'r_' + str(
         hm_c) + 'c_' + str(hm_t) + 't.csv'
 
     with open(filename, mode="w+", newline='') as infile:
@@ -39,7 +39,8 @@ def inputlist(hm_inputs, hm_wells, hm_p, hm_r, hm_c, hm_t):
 
 # main function  is only needed to test out the generation functions
 def main():
-    print(wgenerator(2, 4, 2, 6, 2))
+    for i in range(2, 97):
+        inputlist(100, i, 6, 6, 3, 4)
 
 
 if __name__ == "__main__":
