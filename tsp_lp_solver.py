@@ -1,8 +1,8 @@
 # TSP SOLVER USING LINEAR PROGRAMMING
 # cvxpy parts based on gist.github.com/AshNguyen/3bbaef5203f574cc5a2bad255ca59069
-#pure gurobi based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
+# pure gurobi based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
 # By Kirill Sechkar
-# v0.1.0, 15.7.20
+# v0.1.1, 22.7.20
 
 import cvxpy as cvx
 import numpy as np
@@ -12,7 +12,7 @@ import gurobipy as gp
 from gurobipy import GRB
 from itertools import combinations,product
 
-
+"""
 #------------------------USING CVXPY --------------------
 # recovers the tour from the boolean matrix X encoding it
 def recover(Xval):
@@ -91,6 +91,7 @@ def tsp_lp_lazy(D):
             constraints.append(sum(X[i, j] for i in subtour for j in nots) >= 1)
             prob = cvx.Problem(obj, constraints)
             opt = prob.solve(solver=cvx.MOSEK)
+"""
 
 
 #-----------------PURE GUROBI------------
@@ -103,8 +104,8 @@ def tsp_lp_gurobi(D):
     for i in range(0, len(D)):
         nodes.append(i)
 
-    # convert distance matrix into the dictionary format gurobi uses - note the need to transpose
-    dist = {(i, j): D[j][i] for i, j in product(nodes, nodes) if i != j}
+    # convert distance matrix into the dictionary format gurobi uses
+    dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
 
     m = gp.Model() # create gurobi model
 
@@ -171,23 +172,142 @@ def subtour(edges):
     return cycle
 
 
+#-----------------GUROBI WITH CAPACITY------------
+#solver
+def lp_cap(D,cap):
+    # PART 1: initial preparations
+    # the array of node indices, is auxiliary
+    global nodes
+    nodes = []
+    for i in range(1, len(D)):
+        nodes.append(i)
+
+    # copy capacity into global variable to let other functions use it
+    global gurcap
+    gurcap=cap
+
+    # convert distance matrix into the dictionary format gurobi uses
+    dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
+
+    m = gp.Model() # create gurobi model
+
+    # create matrix indicating the trip (commonly known as X in literature)
+    # obj set to -1 as we need to MAXIMISE the number of Xij=`1
+    vars = m.addVars(dist.keys(), vtype=GRB.BINARY, name='e')
+
+    # dummy variables used for constraints
+    u = {}
+    for i in nodes:
+        u[i] = m.addVar(lb=0, ub=gurcap, vtype="C", name="u(%s)" % i)
+
+    # PART 2: add initial constraints
+    m.addConstrs(vars.sum(c, '*') <= 1 for c in nodes)  # each node has at most 1 incoming edge
+    m.addConstrs(vars.sum('*', c) <= 1 for c in nodes)  # each node has at most 1 outgoing edge
+    # so that each route is a single pipette's journey...
+    m.addConstr(gp.quicksum(vars[i, j]*dist[(i,j)] + vars[j, i]*dist[(j,i)] for i, j in combinations(nodes, 2)) == 0)
+
+    # cycle and too-long route elimination
+    if(gurcap>1.5):
+        m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(nodes, 2))
+        m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
+
+    # PART 3: optimise the model
+    m.Params.TIME_LIMIT = 10.0
+    m.setObjective(gp.quicksum(vars[i,j]+vars[j,i] for i, j in combinations(nodes,2)), GRB.MAXIMIZE)
+    m.optimize()  # optimise while adding lazy subtour-eliminating constraints
+
+    # PART 4: reconstruct tour from m.vars (matrix X in literature)
+    vals = m.getAttr('x', vars)
+    selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
+    routes, iscycle = recover(selected) # get tour from selected edges
+
+    for i in range(0,len(routes)):
+        if (iscycle[i]==True):
+            print('Error! Cycle detected!')
+            break
+    # assert len(tour) == len(nodes)  # sanity check that the tour is actually complete
+
+    """
+    TESTING ONLY (needs tspy package):
+    tsp = TSP()
+    tsp.read_mat(D)
+    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+    tour1 = tsp.get_approx_solution(two_opt)
+    print(tour1)
+    print(get_cost(tour1, tsp))
+    """
+
+    return routes
+
+
+# find the shortest subtour among edges selected by the solution (for a final solution, this is our desired tour)
+def recover(edges):
+    iscycle = []  # which of tours are cycles
+    routes = []  # all the routes covering the cycle
+    unvisited = np.ones((len(nodes)+1),dtype=bool)  #tells if a node was visited, position[0] not needed
+    unvisited[0]=False  # first False just ensures compatibility with early versions of program)
+    while True:
+        # see if no more unvisited nodes are left and if so, quit
+        noneleft=True
+        for i in range(1,len(unvisited)):
+            if (unvisited[i]):
+                noneleft=False
+                unvisited[i]=False
+                break
+        if(noneleft):
+            break
+
+        # start getting a route using the first found unvisited node
+        thisroute=[nodes[i-1]]
+
+        while True:
+            # get next node in route
+            next = edges.select(thisroute[-1], '*')
+            if(next==[]):  # if we got to the end, this isn't a cycle
+                iscycle.append(False)
+                break
+            elif(next[0][1]==thisroute[0]):  # if we got back to the beginning, it's a cycle and we've walked it all
+                iscycle.append(True)
+                break
+            else:  # if neither, just add the regular next node in list
+                thisroute.append(next[0][1])
+                unvisited[next[0][1]]=False
+
+        if not (iscycle[-1]): # if it's not a cycle, recover its beginning
+            next = edges.select('*',thisroute[0])
+            while (next!=[]):
+                thisroute.insert(0,next[0][0])
+                unvisited[next[0][0]] = False
+                next = edges.select('*', thisroute[0])
+
+        routes.append(thisroute.copy())
+
+    return routes, iscycle
+
+
 #-----------------MAIN (TESTING ONLY)------------
 def main():
+    """
     A = [[0, 60, 79, 37, 10, 61],
          [50, 0, 22, 48, 63, 54],
          [79, 42, 0, 49, 70, 38],
          [37, 48, 49, 0, 38, 45],
          [10, 63, 70, 38, 0, 53],
          [61, 54, 38, 45, 53, 0]]
+    """
+    A=[[0,0,0,0],
+       [0,0,0,1],
+       [0,0,0,0],
+       [0,0,0,0]]
     surelymore = 0
     for i in range(0, len(A)):
         for j in A[i]:
             surelymore += j
     for i in range(0, len(A)):
         A[i][i] = surelymore
-    #t1=time.time()
-    print(tsp_lp_mtz(A))
-    #print(time.time()-t1)
+    # t1=time.time()
+    print(gurobi_cap_nolazy(A,2))
+    # print(time.time()-t1)
 
 
 if __name__ == "__main__":
