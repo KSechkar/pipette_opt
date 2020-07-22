@@ -1,6 +1,6 @@
 # TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.6.1, 10.7.20
+# v0.1.0, 22.7.20
 
 # The project makes use of the 'tspy' package
 
@@ -9,9 +9,13 @@ import time
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import dispoper, route_cost_with_w, jsonreader,w_to_subsets
+from auxil import *
 from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
-from tsp_lp_solver import tsp_lp_gurobi
+from tsp_lp_solver import *
+
+from tspy import TSP  # TSP solver package
+from tspy.solvers.utils import get_cost
+from tspy.solvers import TwoOpt_solver
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Each reagent matched with a subest of wells it is added to
@@ -46,7 +50,7 @@ class Oper:
 
 # this is the example given to me in the main pipette_opt file
 w = [['p1', 'r2', 'c4', 't2'],
-     ['p2', 'r2', 'c1', 't2'],
+     ['p1', 'r2', 'c1', 't2'],
      ['p1', 'r3', 'c2', 't1'],
      ['p2', 'r3', 'c1', 't1']]
 
@@ -60,23 +64,30 @@ def main():
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
     w = wgenerator(96, 6, 6, 3, 4)
 
+    cap = capac(pipcap=300, dose=40, airgap=10)
+
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tips = tsp_method(w, fin, 'sametogether',filename=None)
+    tsp_method(w, fin, reord=None, filename=None, cap=cap)
 
     dispoper(fin)
+
+    # TEST ONLY: to compare with previous method (no capacity)
+    fin1=[]
+    tsp_method(w,fin1,reord='',filename=None,cap=None)
+
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     #print('The total number of pipette tips used is ' + str(tips)) #IRRELEVANT WITH LP SOLVER => COMMENTED
-    print('The total number of pipette tips used is (independent calculation)' + str(route_cost_with_w(fin, w)))
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, cap)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
 # solves the problem, returns total cost
-def tsp_method(w, fin, reord,filename):
+def tsp_method(w, fin, reord, filename, cap):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
 
@@ -89,8 +100,6 @@ def tsp_method(w, fin, reord,filename):
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
         D[i][i] = 1000 * len(D)
-
-    tips = len(subsets)  # anyhow, we have to change the tip between the different reagents and we have a tip at first
 
     # print subsets and D (TEST ONLY)
     # disp(subsets, D)
@@ -121,10 +130,8 @@ def tsp_method(w, fin, reord,filename):
 
     # implement the algorithm
     for i in range(0, len(subsets)):
-        tips = singlesub(subsets[i], D, fin, tips)
-        print(str(i+1) + ' of ' + str(len(subsets) - 1) + ' subsets processed')
-
-    return tips
+        singlesub(subsets[i], D, fin, cap)
+        print(str(i+1) + ' of ' + str(len(subsets)) + ' subsets processed')
 
 
 # ---------------------SUBSET DISPLAY-------------------------------
@@ -135,7 +142,7 @@ def disp(subsets, D):
 
 
 # -------------------------------SOLVE TSP FOR ONE SUBSET-------------------------------
-def singlesub(subset, D, fin, tips):
+def singlesub(subset, D, fin, cap):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -158,14 +165,25 @@ def singlesub(subset, D, fin, tips):
                     j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
 
     # PART 3: solve TSP for the subset
-    if(len(subD)==2):
-        tour=[0,1]
-    else:
-        tour=tsp_lp_gurobi(subD)
+    if(cap!=None): #adjusting for capacity
+        if (len(subD) == 2):
+            routes = [[0, 1]]
+        else:
+            routes = lp_cap(subD, cap)
 
-    # PART 4: record the operations into the final output
-    for i in range(1,len(tour)):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
+        # record in fin
+        for route in routes:
+            for i in range(0,len(route)):
+                fin.append(Oper(subset.reag, subset.wells[route[i]-1]))
+
+    else: # no adjustment for capacity
+        if (len(subD) == 2):
+            routes = [[0, 1]]
+        else:
+            tour = tsp_lp_gurobi(subD)
+        # record in fin
+        for i in range(0,len(tour)):
+            fin.append(Oper(subset.reag, subset.wells[tour[i]-1]))
 
     # PART 5: return the adjusted number of pipette tip changes [IRRELEVANT WITH LP SOLVER => COMMENTED]
     #return tips
