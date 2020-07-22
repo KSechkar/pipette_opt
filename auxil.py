@@ -1,6 +1,6 @@
 # AUXIL.PY
 # Auxiliary functions (e.g. route cost calculator, operation printer, json file reader) used by both TSP- and State Space-based methods
-# v0.1.0, 10.7.2020
+# v0.1.1, 22.7.2020
 
 import numpy as np
 import json
@@ -112,7 +112,7 @@ def cost_func_with_w(fin,op,w,added,cap):
     if(lastindex<0): #if no previous operations have been performed, we obviously need to put on a tip
         return 1
 
-    # find the number of the last well where a reagent was added
+    # find the num ber of the last well where a reagent was added
     lastwell = fin[lastindex].well
 
     if(fin[lastindex].reag!=op.reag):
@@ -130,13 +130,16 @@ def cost_func_with_w(fin,op,w,added,cap):
             #only need to do that if cost is ostensibly 0 and the number of operations is less than the capacity
             if((cost==0) and (len(fin)>=cap)):
                 # check if the next dose of vector doesn't fit into the pipette due to capacity limitations
-                capexceed=True # tells if capacity exceeded
-                for i in range(0,cap):
-                    if(fin[lastindex-i].reag!=op.reag):
-                        capexceed=False
+                # to do that, see how many doses of current reagent have been delivered
+                backforcap = 0
+                while (backforcap<len(fin)):
+                    backforcap += 1
+                    if(fin[-backforcap].reag!=op.reag):
+                        backforcap -= 1
                         break
-                # if capacity is exceeded, will have to change tip
-                if(capexceed):
+
+                # if capacity of the current pipette tip with this reagent is exceeded, will have to change tip
+                if(backforcap%cap==0):
                     cost=1
 
     return cost
