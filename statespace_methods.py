@@ -1,6 +1,6 @@
 # STATE SPACE-BASED METHODS (SHORTEST PATH/TREE SEARCH) OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.5, 10.7.20
+# v0.1.0, 22.7.20
 
 import numpy as np
 import time
@@ -70,17 +70,15 @@ def main():
     # iddfs(w, fin, 1,reord=None, cap=cap)
 
     # use iddfs to solve the problem
-    #iddfs(w, fin, 2, 'sametogether', cap=cap)
+    iddfs(w, fin, 2, reord=None, cap=cap)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    # greedy_tree(w, fin, 'optimistic', reord=None, cap=cap)
+    # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
 
     dispoper(fin)
-    subsets=[]
-    ops_to_subsets(fin,subsets)
 
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
