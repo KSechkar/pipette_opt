@@ -3,10 +3,11 @@
 # v0.1.0.lp, 15.7.20
 
 import numpy as np
-from tsp_lp_solver import tsp_lp_gurobi
+from tsp_lp_solver import lp_cap
 
 from tspy import TSP
 from tspy.solvers.utils import get_cost
+from tspy.solvers import TwoOpt_solver
 
 
 # ------------------CLASS DEFINITIONS---------------
@@ -277,7 +278,7 @@ def Drollback(D, werenew):
 
 
 # obtain a solution for given subset to determine its cost for sure
-def solveforcost(subset, D):
+def solveforcost(subset, D, cap):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -295,19 +296,22 @@ def solveforcost(subset, D):
                 if (current_well < sublen - 1):
                     current_well += 1
 
-    # PART 3: solve TSP for the subset
-    tour=tsp_lp_gurobi(subD)
-
-    # PART 4: record the operations into the final output, 'unwrapping' the cycle arround the added zero node to create a path
-    # find the position of the zero node in the tour
-    for i in range(1,len(tour)):
-        fin.append(Oper(subset.reag, subset.wells[tour[i] - 1]))
-
-    # PART 5: return the adjusted number of pipette tip changes
-    tour.append(0) # accounts for notation difference between tspy and gurobi
+    # PART 3: solve TSP for the subset and record costs
     tsp = TSP()
     tsp.read_mat(subD)
-    return tips + get_cost(tour, tsp)  # include the tour cost in the number of tip changes
+
+    # solve with tspy if capacity is not aacounted for
+    if(cap==None):
+        two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+        tour = tsp.get_approx_solution(two_opt)
+        cost = get_cost(tour, tsp)
+    else:
+        chains = lp_cap(subD,cap,5)
+        cost = 0
+        for chain in chains:
+            cost += get_cost(chain,tsp)
+
+    return get_cost(tour, tsp)  # include the tour cost in the number of tip changes
 
 
 # -------------------------------MAIN CALL-------------------------------
