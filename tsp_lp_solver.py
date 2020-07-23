@@ -107,7 +107,13 @@ def tsp_lp_gurobi(D):
     # convert distance matrix into the dictionary format gurobi uses
     dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
 
-    m = gp.Model() # create gurobi model
+    # set output falg to 0 to stop gurobi from printing
+    env = gp.Env(empty=True)
+    env.setParam('OutputFlag', 0)
+    env.start()
+
+    # create gurobi model
+    m = gp.Model(env=env)
 
     # create matrix indicating the trip (commonly known as X in literature)
     vars = m.addVars(dist.keys(), obj=dist, vtype=GRB.BINARY, name='e')
@@ -124,7 +130,7 @@ def tsp_lp_gurobi(D):
     # PART 4: reconstruct tour from m.vars (matrix X in literature)
     vals = m.getAttr('x', vars)
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
-    tour = subtour(selected) # get tour from selected edges
+    tour = subtour(selected)  # get tour from selected edges
 
     assert len(tour) == len(nodes)  # sanity check that the tour is actually complete
 
@@ -151,7 +157,8 @@ def subtourelim(model, where):
         tour = subtour(selected)
         if len(tour) < len(nodes):
             # add subtour elimination constraint for the subtour
-            model.cbLazy(gp.quicksum(model._vars[i, j] + model._vars[j, i] for i, j in combinations(tour, 2)) <= len(tour) - 0.5)
+            model.cbLazy(
+                gp.quicksum(model._vars[i, j] + model._vars[j, i] for i, j in combinations(tour, 2)) <= len(tour) - 0.5)
 
 
 # find the shortest subtour among edges selected by the solution (for a final solution, this is our desired tour)
@@ -174,8 +181,12 @@ def subtour(edges):
 
 #-----------------GUROBI WITH CAPACITY------------
 #solver
-def lp_cap(D,cap):
+def lp_cap(D,cap,maxtime):
     # PART 1: initial preparations
+    # set default maximum optimisation time if none nad-set
+    if(maxtime==None):
+        maxtime=30.0
+
     # the array of node indices, is auxiliary
     global nodes
     nodes = []
@@ -184,12 +195,18 @@ def lp_cap(D,cap):
 
     # copy capacity into global variable to let other functions use it
     global gurcap
-    gurcap=cap
+    gurcap = cap
 
     # convert distance matrix into the dictionary format gurobi uses
     dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
 
-    m = gp.Model() # create gurobi model
+    #set output falg to 0 to stop gurobi from printing
+    env=gp.Env(empty=True)
+    env.setParam('OutputFlag', 0)
+    env.start()
+
+    # create gurobi model
+    m = gp.Model(env=env)
 
     # create matrix indicating the trip (commonly known as X in literature)
     # obj set to -1 as we need to MAXIMISE the number of Xij=`1
@@ -203,26 +220,27 @@ def lp_cap(D,cap):
     # PART 2: add initial constraints
     m.addConstrs(vars.sum(c, '*') <= 1 for c in nodes)  # each node has at most 1 incoming edge
     m.addConstrs(vars.sum('*', c) <= 1 for c in nodes)  # each node has at most 1 outgoing edge
-    # so that each route is a single pipette's journey...
-    m.addConstr(gp.quicksum(vars[i, j]*dist[(i,j)] + vars[j, i]*dist[(j,i)] for i, j in combinations(nodes, 2)) == 0)
+    # so that each chain is a single pipette's journey...
+    m.addConstr(
+        gp.quicksum(vars[i, j] * dist[(i, j)] + vars[j, i] * dist[(j, i)] for i, j in combinations(nodes, 2)) == 0)
 
-    # cycle and too-long route elimination
-    if(gurcap>1.5):
+    # cycle and too-long chain elimination
+    if (gurcap > 1.5):
         m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(nodes, 2))
         m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
 
     # PART 3: optimise the model
-    m.Params.TIME_LIMIT = 10.0
-    m.setObjective(gp.quicksum(vars[i,j]+vars[j,i] for i, j in combinations(nodes,2)), GRB.MAXIMIZE)
+    m.Params.TIME_LIMIT = maxtime
+    m.setObjective(gp.quicksum(vars[i, j] + vars[j, i] for i, j in combinations(nodes, 2)), GRB.MAXIMIZE)
     m.optimize()  # optimise while adding lazy subtour-eliminating constraints
 
     # PART 4: reconstruct tour from m.vars (matrix X in literature)
     vals = m.getAttr('x', vars)
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
-    routes, iscycle = recover(selected) # get tour from selected edges
+    chains, iscycle = recover(selected)  # get tour from selected edges
 
-    for i in range(0,len(routes)):
-        if (iscycle[i]==True):
+    for i in range(0, len(chains)):
+        if (iscycle[i] == True):
             print('Error! Cycle detected!')
             break
     # assert len(tour) == len(nodes)  # sanity check that the tour is actually complete
@@ -237,13 +255,13 @@ def lp_cap(D,cap):
     print(get_cost(tour1, tsp))
     """
 
-    return routes
+    return chains
 
 
 # find the shortest subtour among edges selected by the solution (for a final solution, this is our desired tour)
 def recover(edges):
     iscycle = []  # which of tours are cycles
-    routes = []  # all the routes covering the cycle
+    chains = []  # all the chains covering the cycle
     unvisited = np.ones((len(nodes)+1),dtype=bool)  #tells if a node was visited, position[0] not needed
     unvisited[0]=False  # first False just ensures compatibility with early versions of program)
     while True:
@@ -257,32 +275,32 @@ def recover(edges):
         if(noneleft):
             break
 
-        # start getting a route using the first found unvisited node
-        thisroute=[nodes[i-1]]
+        # start getting a chain using the first found unvisited node
+        thischain=[nodes[i-1]]
 
         while True:
-            # get next node in route
-            next = edges.select(thisroute[-1], '*')
+            # get next node in chain
+            next = edges.select(thischain[-1], '*')
             if(next==[]):  # if we got to the end, this isn't a cycle
                 iscycle.append(False)
                 break
-            elif(next[0][1]==thisroute[0]):  # if we got back to the beginning, it's a cycle and we've walked it all
+            elif(next[0][1]==thischain[0]):  # if we got back to the beginning, it's a cycle and we've walked it all
                 iscycle.append(True)
                 break
             else:  # if neither, just add the regular next node in list
-                thisroute.append(next[0][1])
+                thischain.append(next[0][1])
                 unvisited[next[0][1]]=False
 
         if not (iscycle[-1]): # if it's not a cycle, recover its beginning
-            next = edges.select('*',thisroute[0])
+            next = edges.select('*',thischain[0])
             while (next!=[]):
-                thisroute.insert(0,next[0][0])
+                thischain.insert(0,next[0][0])
                 unvisited[next[0][0]] = False
-                next = edges.select('*', thisroute[0])
+                next = edges.select('*', thischain[0])
 
-        routes.append(thisroute.copy())
+        chains.append(thischain.copy())
 
-    return routes, iscycle
+    return chains, iscycle
 
 
 #-----------------MAIN (TESTING ONLY)------------

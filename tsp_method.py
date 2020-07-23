@@ -167,18 +167,18 @@ def singlesub(subset, D, fin, cap):
     # PART 3: solve TSP for the subset
     if(cap!=None): #adjusting for capacity
         if (len(subD) == 2):
-            routes = [[0, 1]]
+            chains = [[0, 1]]
         else:
-            routes = lp_cap(subD, cap)
+            chains = lp_cap(subD, cap, 30)
 
         # record in fin
-        for route in routes:
-            for i in range(0,len(route)):
-                fin.append(Oper(subset.reag, subset.wells[route[i]-1]))
+        for chain in chains:
+            for i in range(0,len(chain)):
+                fin.append(Oper(subset.reag, subset.wells[chain[i]-1]))
 
     else: # no adjustment for capacity
         if (len(subD) == 2):
-            routes = [[0, 1]]
+            chains = [[0, 1]]
         else:
             tour = tsp_lp_gurobi(subD)
         # record in fin
