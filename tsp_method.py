@@ -10,7 +10,7 @@ import time
 # import functions from own files
 from input_generator import wgenerator
 from auxil import *
-from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy, reorder_a_star
+from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy
 from tsp_lp_solver import *
 
 from tspy import TSP  # TSP solver package
@@ -70,14 +70,9 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord=None, filename=None, cap=cap)
+    tsp_method(w, fin, reord='iddfs depth 2', filename=None, cap=cap)
 
     dispoper(fin)
-
-    # TEST ONLY: to compare with previous method (no capacity)
-    fin1=[]
-    tsp_method(w,fin1,reord='',filename=None,cap=None)
-
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
@@ -117,13 +112,13 @@ def tsp_method(w, fin, reord, filename, cap):
         origsubs = subsets.copy()
         subsets = []
         if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. iddfs depth 1)
-            reorder_iddfs(origsubs, subsets, D.copy(), 1)
+            reorder_iddfs(origsubs, subsets, D.copy(), 1, cap)
         elif (reord == 'iddfs depth 2'):  # ...iddfs
-            reorder_iddfs(origsubs, subsets, D.copy(), 2)
+            reorder_iddfs(origsubs, subsets, D.copy(), 2, cap)
         elif (reord == 'greedy'):  # ...greedy tree search
             reorder_greedy(origsubs, subsets, D.copy(), 'countall')
-        elif (reord == 'a*'):  # ...A*  tree search
-            reorder_a_star(origsubs, subsets, D.copy(), 'countall')
+        # elif (reord == 'a*'):  # ...A*  tree search
+            # reorder_a_star(origsubs, subsets, D.copy(), 'countall')
 
     # print subsets and D (TEST ONLY)
     # disp(subsets, D)
