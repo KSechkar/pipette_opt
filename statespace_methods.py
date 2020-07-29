@@ -105,7 +105,7 @@ def main():
     #greedy_tree(w, fin, 'optimistic', 'sametogether')
 
     # use monte-carlo tree search to solve the problem
-    montecarlo(w,fin,1)
+    montecarlo(w,fin,0.25)
 
     dispoper(fin)
 
@@ -295,20 +295,18 @@ def h_tree(state, unstate, heur):
 
 
 # -------------------------------MONTE-CARLO-------------------------------
-def montecarlo(w, fin, sims):
+def montecarlo(w, fin, simtime):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord=None)
     root=Treenode(0,0,[],ops)
     global montew
     montew = w
 
-    simtime = 0.25
-
     while (len(root.unstate)!=0):
         # for i in range(0,sims):
         starttime=time.time()
         while ((time.time() - starttime) < simtime):
-            print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
+            # print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
             bleaf=bestleaf(root) # find currently best leaf
 
             # make children for the leaf
