@@ -64,13 +64,13 @@ def main():
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
     w = wgenerator(96, 6, 6, 3, 4)
 
-    cap = capac(pipcap=300, dose=40, airgap=10)
+    cap = capac(pipcap=10, dose=1, airgap=1)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord='iddfs depth 2', filename=None, cap=cap)
+    tsp_method(w, fin, reord='sametogether', filename=None, cap=cap)
 
     dispoper(fin)
 
@@ -116,7 +116,7 @@ def tsp_method(w, fin, reord, filename, cap):
         elif (reord == 'iddfs depth 2'):  # ...iddfs
             reorder_iddfs(origsubs, subsets, D.copy(), 2, cap)
         elif (reord == 'greedy'):  # ...greedy tree search
-            reorder_greedy(origsubs, subsets, D.copy(), 'countall')
+            reorder_greedy(origsubs, subsets, D.copy(), 'countall',cap)
         # elif (reord == 'a*'):  # ...A*  tree search
             # reorder_a_star(origsubs, subsets, D.copy(), 'countall')
 

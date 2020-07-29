@@ -100,7 +100,7 @@ def main():
     # iddfs(w, fin, 1,reord=None, cap=cap)
 
     # use iddfs to solve the problem
-    iddfs(w, fin, 2, reord=None, cap=cap)
+    # iddfs(w, fin, 2, reord=None, cap=cap)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
@@ -109,7 +109,7 @@ def main():
     # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
     
     # use monte-carlo tree search to solve the problem
-    # montecarlo(w,fin,0.25)
+    montecarlo(w,fin,0.1,cap=cap)
 
     dispoper(fin)
 
@@ -306,7 +306,7 @@ def h_tree(state, unstate, heur,cap):
 
 
 # -------------------------------MONTE-CARLO-------------------------------
-def montecarlo(w, fin, simtime):
+def montecarlo(w, fin, simtime, cap):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord=None)
     root=Treenode(0,0,[],ops)
@@ -317,7 +317,7 @@ def montecarlo(w, fin, simtime):
         # for i in range(0,sims):
         starttime=time.time()
         while ((time.time() - starttime) < simtime):
-            # print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
+            print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
             bleaf=bestleaf(root) # find currently best leaf
 
             # make children for the leaf
@@ -326,9 +326,9 @@ def montecarlo(w, fin, simtime):
 
             # find the random-simulation value
             if(len(bleaf.kids)!=0):
-                value = randsim(bleaf.kids[np.random.randint(0,len(bleaf.kids))])
+                value = randsim(bleaf.kids[np.random.randint(0,len(bleaf.kids))],cap)
             else: # no need for random simulation if leaf is the end-state
-                value = len(bleaf.state) - route_cost_with_w(bleaf.state, montew)
+                value = len(bleaf.state) - route_cost_with_w(bleaf.state, montew, cap)
 
             # back-propagate
             backpropagate(bleaf,value)
@@ -361,12 +361,12 @@ def ucb(treenode):
         return treenode.value + 2 * sqrt(np.log(treenode.parent.visits) / treenode.visits)
 
 
-def randsim(curnode):
+def randsim(curnode,cap):
     if (len(curnode.unstate) != 0):
         next = np.random.randint(0, len(curnode.unstate))
-        return randsim(Treenode(curnode, next, curnode.state, curnode.unstate))
+        return randsim(Treenode(curnode, next, curnode.state, curnode.unstate),cap)
     else:
-        return (len(curnode.state) - route_cost_with_w(curnode.state, montew))
+        return (len(curnode.state) - route_cost_with_w(curnode.state, montew,cap))
 
 def backpropagate(curnode,value):
     curnode.update_valvis(value)

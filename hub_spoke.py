@@ -7,7 +7,7 @@ import time
 from itertools import combinations, product
 
 from input_generator import wgenerator
-from auxil import dispoper
+from auxil import dispoper, capac
 
 ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
 
@@ -109,8 +109,10 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
+    # define capacity-related information
+    pipinfo={'pipcap': 10, 'onedose':1, 'airgap': 1}
     # call solver
-    hubspoke(w,fin)
+    hubspoke(w,fin,pipinfo=None)
 
     # PERFORMANCE EVALUATION: print the working time
     dispoper(fin)
@@ -120,7 +122,7 @@ def main():
 
 # -------------------------------SOLVER-------------------------------
 # solver function, returns cost
-def hubspoke(w,fin):
+def hubspoke(w,fin,pipinfo):
     # get list of reagents (sortent and unsorted by type)
     reaglist,listall=countreags(w)
 
@@ -134,6 +136,18 @@ def hubspoke(w,fin):
     for m,n,o in combinations(reaglist.keys(),3):
         hubs[3].update({(i,j,k): Hub((i,j,k)) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
 
+    # get capaicty constraints
+    global caps
+    caps = {}
+    if(pipinfo != None):
+        caps[1] = capac(pipinfo['pipcap'], pipinfo['onedose'], pipinfo['airgap'])  # capacity for one-reagent delivery
+        caps[2] = capac(pipinfo['pipcap'], 2*pipinfo['onedose'], pipinfo['airgap'])  # capacity for two-reagent delivery
+        caps[3] = capac(pipinfo['pipcap'], 3*pipinfo['onedose'], pipinfo['airgap'])  # capacity for two-reagent delivery
+    else:
+        caps[1] = 96
+        caps[2] = 96
+        caps[3] = 96
+
     # assign each well to SOME level-1 hub
     for i in range(0,len(w)):
         # randreag=np.random.randint(0,4)
@@ -145,14 +159,15 @@ def hubspoke(w,fin):
     # promote wells to rank-3 hubs
     rankup(2)
     # purge the highest rank of one-well hubs
-    purgerank(3)
+    # purgerank(3)
 
-    """# TEST ONLY
+    # TEST ONLY
     ranked = 0
-    for h in hubs[2].values():
-        if(len(h.wells)!=0):
-            ranked += len(h.wells)
-    print(ranked)"""
+    for rank in range(1,4):
+        for h in hubs[rank].values():
+            if(len(h.wells)!=0):
+                ranked += len(h.wells)
+    print(ranked)
 
     # record operations
     makefin(w,fin)
@@ -182,33 +197,43 @@ def countreags(w):
 def rankup(rank):
     # do this for each hub of current rank
     for hub in hubs[rank].values():
-
+        delwell = [] # the well that'll be promoted will have to be deleted from current hub
         # every time, promote the set that brings best results, until no sets are left
         while (len(hub.sets) != 0):
             # find best set
-            maxsize = -1  # guaranteed to be replaced
+            improvement = 0
             for s in hub.sets:
+                # get by how much promoting the set would improve situation
                 nextaddress = addr(hub.reags + tuple([s]))
-                thissize = (len(hubs[rank + 1][nextaddress].wells) + len(hub.sets[s]))
-                if (thissize > maxsize):
-                    maxsize = thissize
+                nexthublen = len(hubs[rank + 1][nextaddress].wells)
+                hublen = len(hub.wells)
+                setlen = len(hub.sets[s])
+                tipsnow = hubtips(hublen,rank) + hubtips(nexthublen,rank+1)
+                tipsthen = hubtips(hublen - setlen,rank) + hubtips(nexthublen + setlen,rank+1)
+                thisimprovement = tipsnow - tipsthen
+
+                # if this is the new most-improved player, record that
+                if (thisimprovement > improvement):
+                    improvement = thisimprovement
                     bestset = s
-            if (maxsize == 0): # shortcut, skips removal of empty promotion sets
+            # stop when no improvement can happen any more
+            if (improvement == 0):
                 break
 
             #promote best set
-            nextaddress = addr(hub.reags + tuple([s]))
+            nextaddress = addr(hub.reags + tuple([bestset]))
             for iw in hub.sets[bestset]:
                 nuwell = hub.wells[iw]
                 nuwell.origins.append(hub.reags)
                 hubs[rank + 1][nextaddress].getwell(nuwell)
+                delwell.append(iw)
             # clear current set, remove promoted wells from remaining sets
             hub.setout(bestset)
 
-        # clear hub once all wells promoted
-        hubl = len(hub.wells)
-        for i in range(0,hubl):
-            hub.wells.pop()
+        # clear hub of all wells promoted
+        delwell.sort(reverse=True)
+        for d in delwell:
+            hub.wells.pop(d)
 
 
 # purge the highest rank of one-well hubs
@@ -279,11 +304,20 @@ def makefin(w,fin):
 def costfromhubs():
     cost = 0
     for rank in range(1, 4):
-        coeff = 4 - rank
         for hub in hubs[rank].values():
-            if(len(hub.wells)!=0):
-                cost = cost + rank + len(hub.wells) * coeff
+            cost += hubtips(len(hub.wells), rank)
     return cost
+
+
+def hubtips(hublen, rank):
+    if (hublen == 0):
+        return 0
+    else:
+        cost = rank * np.ceil(hublen / caps[1])  # number of tips needed to make the hub mixture
+        cost += np.ceil(hublen / caps[rank]) - 1  # no. of tips to deliver mixture. -1 as we reuse last tip from before
+        coeff = 4 - rank
+        cost += coeff * hublen  # number of tips to deliver remaining reagents to spoke wells
+        return cost
 
 
 # -------------------------------MAIN CALL-------------------------------

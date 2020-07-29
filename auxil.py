@@ -41,7 +41,7 @@ def dispoper(fin):
         print(fin[i])
 
 
-# -----------------------RESULTS PRINTING-----------------------------
+# -----------------------CAPACITY CALCULATOR-----------------------------
 # need to clairfy if the last collection has an air gap after it
 # currently assumed that NO
 def capac(pipcap, dose, airgap):
