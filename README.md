@@ -2,6 +2,11 @@
 
 Latest change: 22 July 2020 - tsp method now supports limited pipette capacity; cost function fixed (was giving incorrect results)
 
+THE BRANCH 'MOREOPTIONS' explores some more options for solving the problem.
+montecarlo() in statespace_methods implements Monte-Carlo tree search.
+
+The hub_spoke program implemets the hub-and-spoke method for solving the problem.
+
 The tsp_method program implements the TSP-based algorithm outlined in the 'PossibleSolution' document.
 The method used to solve the TSP is 2-opt of the Nearest Neighbour algorithm.
 

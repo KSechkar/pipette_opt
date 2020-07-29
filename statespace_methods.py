@@ -4,6 +4,7 @@
 
 import numpy as np
 import time
+from math import sqrt
 
 # import functions from own files
 from input_generator import wgenerator
@@ -39,6 +40,35 @@ class State:
         strRep = 'Last performed: ' + str(self.last) + '\n' + str(self.added)
         return strRep
 
+# needed for Monte-Carlo
+class Treenode:
+    def __init__(self, parent, whichun, prevstate, prevunstate):
+        self.state = prevstate.copy()+[prevunstate[whichun]] # get all operations performed to this point
+        self.unstate=prevunstate.copy()
+        self.unstate.pop(whichun)
+
+        self.parent=parent # parent on tree
+        self.kids=[] # children on tree
+        self.visits=0 # number of visits carried out
+        self.value=0 # the value
+
+    # add a child on tree
+    def addkid(self,kid):
+        self.kids.append(kid)
+
+    # delete the tree node and the branches attached to it
+    def allclear(self):
+        for kid in self.kids:
+            kid.allclear()
+        del self
+
+    # get new average value from input and increase number of visits
+    def update_valvis(self,value):
+        if(self.visits==0):
+            self.value=value
+        else:
+            self.value = (self.value/self.visits + value)/(self.visits + 1)
+        self.visits += 1
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
@@ -77,6 +107,9 @@ def main():
 
     # use greedy algorithm on a tree to solve the problem
     # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
+    
+    # use monte-carlo tree search to solve the problem
+    # montecarlo(w,fin,0.25)
 
     dispoper(fin)
 
@@ -271,6 +304,81 @@ def h_tree(state, unstate, heur,cap):
             est_cost+=round(len(subset.wells)/cap)
         return est_cost
 
+
+# -------------------------------MONTE-CARLO-------------------------------
+def montecarlo(w, fin, simtime):
+    ops = []  # an Oper list of operations to be performed
+    getops(w, ops, reord=None)
+    root=Treenode(0,0,[],ops)
+    global montew
+    montew = w
+
+    while (len(root.unstate)!=0):
+        # for i in range(0,sims):
+        starttime=time.time()
+        while ((time.time() - starttime) < simtime):
+            # print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
+            bleaf=bestleaf(root) # find currently best leaf
+
+            # make children for the leaf
+            for j in range(0,len(bleaf.unstate)):
+                bleaf.addkid(Treenode(bleaf,j,bleaf.state,bleaf.unstate))
+
+            # find the random-simulation value
+            if(len(bleaf.kids)!=0):
+                value = randsim(bleaf.kids[np.random.randint(0,len(bleaf.kids))])
+            else: # no need for random simulation if leaf is the end-state
+                value = len(bleaf.state) - route_cost_with_w(bleaf.state, montew)
+
+            # back-propagate
+            backpropagate(bleaf,value)
+
+        # go for next iteration
+        root=root.kids[clearkids(root.kids)] # pick the best kid, clear all non-best kids
+
+    fin+=root.state
+
+
+def bestleaf(root):
+    if (len(root.kids) != 0):
+        best = 0
+        bestucb = ucb(root.kids[0])
+        for i in range(1, len(root.kids)):
+            iucb = ucb(root.kids[i])
+            if (iucb > bestucb):
+                best = i
+                bestucb=iucb
+        return bestleaf(root.kids[best])
+    else:
+        return root
+
+
+def ucb(treenode):
+    # print(treenode.value) # TEST ONLY
+    if(treenode.visits==0):
+        return np.inf
+    else:
+        return treenode.value + 2 * sqrt(np.log(treenode.parent.visits) / treenode.visits)
+
+
+def randsim(curnode):
+    if (len(curnode.unstate) != 0):
+        next = np.random.randint(0, len(curnode.unstate))
+        return randsim(Treenode(curnode, next, curnode.state, curnode.unstate))
+    else:
+        return (len(curnode.state) - route_cost_with_w(curnode.state, montew))
+
+def backpropagate(curnode,value):
+    curnode.update_valvis(value)
+    if(curnode.parent!=0):
+        backpropagate(curnode.parent,value)
+
+def clearkids(kids):
+    best=kids.index(max(kids,key=lambda kids: kids.visits))
+    for i in range(0,len(kids)):
+        if(i!=best):
+            kids[i].allclear()
+    return best # return where to go next
 
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w
