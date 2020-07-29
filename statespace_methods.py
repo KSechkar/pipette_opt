@@ -1,6 +1,6 @@
 # STATE SPACE-BASED METHODS (SHORTEST PATH/TREE SEARCH) OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.6, 27.7.20
+# v0.1.0, 22.7.20
 
 import numpy as np
 import time
@@ -8,7 +8,7 @@ from math import sqrt
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import cost_func, dispoper, cost_func_with_w, route_cost_with_w, w_to_subsets, subsets_to_ops
+from auxil import *
 from tsp_reorder import sametogether
 
 # match reagents with their addresses in w
@@ -92,32 +92,36 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
+    # determine how many vector doses a pipette can hold (capacity)
+    # for now, values selected manually in the order: pipette capacity, reagent volume, air gap volume
+    cap = capac(pipcap=300,dose=40,airgap=10)
+
     # use nearest-neighbour tree search to solve the problem
-    # iddfs(w, fin, 1, True,'sametogether')
+    # iddfs(w, fin, 1,reord=None, cap=cap)
 
     # use iddfs to solve the problem
-    #iddfs(w, fin, 2, True,'sametogether')
+    iddfs(w, fin, 2, reord=None, cap=cap)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    #greedy_tree(w, fin, 'optimistic', 'sametogether')
-
+    # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
+    
     # use monte-carlo tree search to solve the problem
-    montecarlo(w,fin,0.25)
+    # montecarlo(w,fin,0.25)
 
     dispoper(fin)
 
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
 
-    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w)))
+    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w,cap)))
 
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
 # iddfs function
-def iddfs(w, fin, depth, with_w, reord):
+def iddfs(w, fin, depth, reord,cap):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
@@ -129,22 +133,21 @@ def iddfs(w, fin, depth, with_w, reord):
     fin.append(ops[0])
     ops.pop(0)
 
-    if (with_w):
-        added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-        added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+    # if (with_w):
+    added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
+    added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
-        #print(len(fin))
-        if (with_w):
-            nextop = iddfs_oneiter_with_w(ops, fin, 1, depth, w, added)
-            added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
-        else:
-            nextop = iddfs_oneiter(ops, fin, 1, depth)
-
+        # if (with_w):
+        nextop = iddfs_oneiter_with_w(ops, fin, 1, depth, w, added,cap)
+        added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
+        # else:
+            # nextop = iddfs_oneiter(ops, fin, 1, depth)
         fin.append(ops[nextop])
         ops.pop(nextop)
 
 
+"""
 # single iteration of iddfs
 def iddfs_oneiter(ops, fin, curdepth, depth):
     # determine the potential cost of each possible operation
@@ -161,14 +164,15 @@ def iddfs_oneiter(ops, fin, curdepth, depth):
     else:
         answer = min(potcost)
     return answer
+"""
 
 
 # single iteration of iddfs (with w)
-def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
+def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added,cap):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added))
+        potcost.append(cost_func_with_w(fin, ops[i], w, added,cap))
         # next iteration
         if (curdepth < depth and len(ops) != 1):
             # change the inputs for next iteration
@@ -177,7 +181,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
             ops.pop(i)
 
             # call next iteration
-            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, w, added)
+            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, w, added, cap)
 
             # change the inputs back
             ops.insert(i, fin[len(fin) - 1])
@@ -192,7 +196,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
 
     return answer
 
-
+"""
 # -------------------------------SOLVER (A*)-------------------------------
 # A* solver - on a tree
 def a_star_tree(w, fin, heur, reord):
@@ -236,10 +240,11 @@ def a_star_tree(w, fin, heur, reord):
         g.pop(consider)
         f.pop(consider)
         l.pop(consider)  # TEST ONLY
+"""
 
 
 # ---------------------------SOLVER (GREEDY)-------------------
-def greedy_tree(w, fin, heur, reord):
+def greedy_tree(w, fin, heur, reord,cap):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
@@ -256,20 +261,20 @@ def greedy_tree(w, fin, heur, reord):
 
     while (len(fin) < all_operations):
         #print(len(fin))
-        nextop = greedy_tree_onestep(ops, fin, w, added, heur)
+        nextop = greedy_tree_onestep(ops, fin, w, added, heur,cap)
         added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
 
         fin.append(ops[nextop])
         ops.pop(nextop)
 
 
-def greedy_tree_onestep(ops, fin, w, added, heur):
+def greedy_tree_onestep(ops, fin, w, added, heur,cap):
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added))  # cost function
+        potcost.append(cost_func_with_w(fin, ops[i], w, added,cap))  # cost function
         fin.append(ops[i])
         ops.pop(i)
-        potcost[-1] += h_tree(fin, ops, heur)  # heurstic
+        potcost[-1] += h_tree(fin, ops, heur,cap)  # heurstic
         ops.insert(i, fin[-1])
         fin.pop()
 
@@ -278,7 +283,7 @@ def greedy_tree_onestep(ops, fin, w, added, heur):
 
 
 # heuristic function
-def h_tree(state, unstate, heur):
+def h_tree(state, unstate, heur,cap):
     if (heur == 'optimistic'):  # h is the forecoming number of tip changes assuming we don't have to do extra changes
         already = []
         for unop in unstate:
@@ -290,8 +295,14 @@ def h_tree(state, unstate, heur):
             if not ispresent:
                 already.append(unop.reag)
         return len(already)
-
-    return 0
+    elif (heur == 'optimistic+cap'):
+        subsets=[]
+        ops_to_subsets(unstate,subsets)
+        est_cost=0
+        for subset in subsets:
+            est_cost+=1
+            est_cost+=round(len(subset.wells)/cap)
+        return est_cost
 
 
 # -------------------------------MONTE-CARLO-------------------------------

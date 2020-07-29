@@ -1,5 +1,6 @@
 # pipette_opt
-Latest change: 17 July 2020 - programs for testing the performance added
+
+Latest change: 22 July 2020 - tsp method now supports limited pipette capacity; cost function fixed (was giving incorrect results)
 
 THE BRANCH 'MOREOPTIONS' explores some more options for solving the problem.
 montecarlo() in statespace_methods implements Monte-Carlo tree search.
@@ -12,15 +13,18 @@ The method used to solve the TSP is 2-opt of the Nearest Neighbour algorithm.
 The tsp_reorder program contains the reordering algorithms that can be performed to improve the preformance of tsp_method.
 It has simple and state-space reorderings.
 
-The tsp_lp_solver program implements a linear programming approach to solving a TSP instead of the tspy package.
+The tsp_lp_solver program implements linear programming solvers needed for the tsp-based methods.
+cvxpy-based methods are too slow to work on 96 wells (are commented right now to reduce distraction), but tsp_lp_gurobi is fast and working well.
+lp_cap uses gurobi to solve the linear programming problem needed for the capacity-conscious version of the 'TSP method'.
 
 The statespace_methods program implements various algorithms working with the state-space representation of the problem (see the 'ProblemRepresentation' document).
 Currently, it contains two kinds of iddfs solver, greedy solver and an a* solver (does not work).
 
 The input_generator program contains fucntions that create random inputs used for algorithm testing.
 
-The auxil program contains auxiliary functions used by BOTH methods
-Currently, it has a display function, as well as route/single operation cost functions of two different kinds.
+The auxil program contains auxiliary functions used by BOTH methods.
+Currently, it has a display function, pipette capacity calculator, as well as route/single operation cost functions of two different kinds.
+Only cost functions 'with_w' are used as the other kind is too slow - and only 'with_w' supports capacity limitations. To ignore capacity, give cap=None.
 
 ***
 Development purposes only
