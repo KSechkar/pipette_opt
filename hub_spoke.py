@@ -1,6 +1,6 @@
 # HUB-AND-SPOKE METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.1, 27.7.20
+# v0.0.2, 28.7.20
 
 import numpy as np
 import time
@@ -12,6 +12,8 @@ from auxil import dispoper
 ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
+# Final output format is an array of Operations - will be the same for ALL methods
+# wells of number <100 are a stand-in for 'hub' wells
 class Oper:
     def __init__(self, reag, well):
         self.reag = reag
@@ -21,30 +23,62 @@ class Oper:
         strRep = self.reag + ' -> w' + str(self.well)
         return strRep
 
+# Hubwell is how a well that will be served by a hub is listed within a Hub variable
 class Hubwell:
     def __init__(self):
-       self.wellno=[]
-       self.content=[]
-       self.origin=[]
+       self.wellno=[] # number of the well in w
+       self.content=[] # which reagents the well contains
+       self.origin=[] # the hubs it was previously served by
 
     def __init__(self,content,wellno,origins):
        self.wellno=wellno
        self.content=content
        self.origins=origins
 
+# Hub is a well where n reagents are mixed ( 1 <= n <= 3, 'hub rank' is the value of n)
+# Hubs of rank 1 are the actual reagent source wells, so they're treated quite differently
 class Hub:
     def __init__(self,reags):
-        self.reags = reags
-        self.rank = len(reags)
+        self.reags = reags # the reagent mixed in the hub
+        self.rank = len(reags) # hub rank
 
-        self.next=[0,1,2,3]
+        self.next=[0,1,2,3] # which type reagents we add added to a served well next (e.g. '0' for 'p' if hub has 'r,c,t')
         for r in reags:
             self.next.pop(self.next.index(ADDRESS[r[0]]))
 
-        self.wells=[]
+        self.wells=[] # list of wells
+        self.sets={} # wells get promoted to a higher-ranked hub in sets if they can be transferred to the same hub
+                     # here, dictionary key is the extra reagent in the new hub
 
-    def getwell(self,well):
-        self.wells.append(well)
+    # add a new well served by the hub
+    def getwell(self, well):
+        self.wells.append(well) # add well
+
+        # add well to all promotion sets it must belong to
+        for n in self.next:
+            reag = well.content[n]
+            nomatch = True
+            for s in self.sets:
+                if (s == reag):
+                    self.sets[s].append(len(self.wells) - 1)
+                    nomatch = False
+                    break
+            if (nomatch):
+                self.sets[reag] = [(len(self.wells) - 1)]
+
+    # called when a given set has been promoted and now needs deletion
+    # all the promoted wells are removed from remaining sets
+    def setout(self,out):
+        for iw in self.sets[out]:
+            for n in self.next:
+                for s in self.sets:
+                    if ((s==self.wells[iw].content[n]) and (s!=out)):
+                        set = self.sets[self.wells[iw].content[n]]
+                        ind = set.index(iw)
+                        set.pop(ind)
+                        break
+        self.sets.pop(out)
+
 
     def __str__(self):
         strRep = 'Reagents: ' + str(self.reags)
@@ -57,14 +91,13 @@ class Hub:
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
-# this is the example given to me in the main pipette_opt file
 w = [['p1', 'r2', 'c4', 't2'],
      ['p1', 'r2', 'c5', 't2'],
      ['p1', 'r2', 'c2', 't2'],
      ['p1', 'r2', 'c1', 't2']]
 
 
-# -------------------------------MAIN-------------------------------
+# -------------------------------MAIN (TESTING ONLY)-------------------------------
 def main():
     fin = []  # an Oper list of operations in the order which they should be performed
 
@@ -76,7 +109,9 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
+    # call solver
     hubspoke(w,fin)
+
     # PERFORMANCE EVALUATION: print the working time
     dispoper(fin)
     print('The total number of pipette tip changes is '  + str(costfromhubs()))
@@ -84,13 +119,14 @@ def main():
 
 
 # -------------------------------SOLVER-------------------------------
+# solver function, returns cost
 def hubspoke(w,fin):
     # get list of reagents (sortent and unsorted by type)
     reaglist,listall=countreags(w)
 
     # get unfilled hubs
     global hubs
-    hubs={0:{},1:{},2:{},3:{}}
+    hubs={1:{},2:{},3:{}}
     for n in reaglist.keys():
         hubs[1].update({(i): Hub(tuple([i])) for i in reaglist[n]})
     for m,n in combinations(reaglist.keys(),2):
@@ -98,28 +134,34 @@ def hubspoke(w,fin):
     for m,n,o in combinations(reaglist.keys(),3):
         hubs[3].update({(i,j,k): Hub((i,j,k)) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
 
-    # assign each well to some level-1 hub - randomly
+    # assign each well to SOME level-1 hub
     for i in range(0,len(w)):
         # randreag=np.random.randint(0,4)
         randreag=0
         hubs[1][w[i][randreag]].getwell(Hubwell(w[i],i,[0]))
 
+    # promote wells to rank-2 hubs
     rankup(1)
+    # promote wells to rank-3 hubs
     rankup(2)
+    # purge the highest rank of one-well hubs
     purgerank(3)
 
-
-    # TEST ONLY
+    """# TEST ONLY
     ranked = 0
     for h in hubs[2].values():
         if(len(h.wells)!=0):
             ranked += len(h.wells)
-    print(ranked)
+    print(ranked)"""
 
+    # record operations
     makefin(w,fin)
+
+    return costfromhubs()
 
 
 # -------------------------------FUNCTIONS USED BY SOLVER-------------------------------
+# create a list of all reagents used
 def countreags(w):
     reaglist={'p':[],'r':[],'c':[],'t':[]}
     listall=[]
@@ -136,25 +178,40 @@ def countreags(w):
     return reaglist,listall
 
 
+# promote wells to next-level hubs
 def rankup(rank):
-    # transfer wells to level-2 hubs
+    # do this for each hub of current rank
     for hub in hubs[rank].values():
-        delwell = []
-        for i in range(0, len(hub.wells)):
-            for j in range(0, len(hub.next)):
-                nextaddress = addr(hub.reags + tuple([hub.wells[i].content[hub.next[j]]]))
-                if ((len(hubs[rank + 1][nextaddress].wells) != 0) or (j == (len(hub.next) - 1))):
-                    nuwell = hub.wells[i]
-                    nuwell.origins.append(hub.reags)
-                    hubs[rank + 1][nextaddress].getwell(nuwell)
-                    delwell.append(i)
-                    break
-        if (len(delwell) != 0):
-            dell = len(delwell)
-            for d in range(1, dell + 1):
-                hub.wells.pop(delwell[dell - d])
+
+        # every time, promote the set that brings best results, until no sets are left
+        while (len(hub.sets) != 0):
+            # find best set
+            maxsize = -1  # guaranteed to be replaced
+            for s in hub.sets:
+                nextaddress = addr(hub.reags + tuple([s]))
+                thissize = (len(hubs[rank + 1][nextaddress].wells) + len(hub.sets[s]))
+                if (thissize > maxsize):
+                    maxsize = thissize
+                    bestset = s
+            if (maxsize == 0): # shortcut, skips removal of empty promotion sets
+                break
+
+            #promote best set
+            nextaddress = addr(hub.reags + tuple([s]))
+            for iw in hub.sets[bestset]:
+                nuwell = hub.wells[iw]
+                nuwell.origins.append(hub.reags)
+                hubs[rank + 1][nextaddress].getwell(nuwell)
+            # clear current set, remove promoted wells from remaining sets
+            hub.setout(bestset)
+
+        # clear hub once all wells promoted
+        hubl = len(hub.wells)
+        for i in range(0,hubl):
+            hub.wells.pop()
 
 
+# purge the highest rank of one-well hubs
 def purgerank(rank):
     for hub in hubs[rank].values():
         if (len(hub.wells) == 1):
@@ -173,6 +230,8 @@ def purgerank(rank):
     return 0
 
 
+# address of a hub has a strict ordering of reagent types: p before r before c before t
+# this function makes unordered address ordered
 def addr(reags):
     ordered=[]
     for type in 'prct':
@@ -188,6 +247,7 @@ def addr(reags):
         return (ordered[0],ordered[1],ordered[2])
 
 
+# create final list of operations using hub output
 def makefin(w,fin):
     for hub in hubs[1].values():
         if(len(hub.wells)!=0):
@@ -215,6 +275,7 @@ def makefin(w,fin):
                         fin.append(Oper(w[hubwell.wellno][n], hubwell.wellno))
 
 
+# calculate costs based on hub output
 def costfromhubs():
     cost = 0
     for rank in range(1, 4):
@@ -224,8 +285,6 @@ def costfromhubs():
                 cost = cost + rank + len(hub.wells) * coeff
     return cost
 
-
-# -----------------------ADVANCED SOLVER------------------------
 
 # -------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
