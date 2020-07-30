@@ -97,22 +97,9 @@ def sametogether(subsets, totalwells):
 # -------------STATE-SPACE REORDERINGS----------------
 # iddfs
 def reorder_iddfs(origsubs, subsets, D, depth,cap):
-    # if we want to randomise the order first
-    # np.random.shuffle(origsubs)
-
+    # set maximum optimisation time for more than default, so that tree search is faster
     global maxtime
-    """
-    The capacitated lp problem takes long to solve.
-    So the deeper is the iddfs, the lower should be optimisation time if we want adequate runtimes.
-    It's also possible to use TSP solutions as a lower-bound approximation of cost (much faster).
-    """
-    if(depth==1):
-        maxtime=1.0
-    elif(depth==2): # even now, the runtime is >4min
-        maxtime=0.1
-    elif(depth>2): # we don't ever do depth>3, this is just proof of concept
-        cap=None
-
+    maxtime=0.1
 
     all_operations = len(origsubs)
 
@@ -160,12 +147,9 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,cap):
 
 # greedy algorithm
 def reorder_greedy(origsubs, subsets, D, heur, cap):
-    # if we want to randomise the order first
-    # np.random.shuffle(origsubs)
-
-    # set optimpisation time limit
+    # set maximum optimisation time for more than default, so that tree search is faster
     global maxtime
-    maxtime=1.0
+    maxtime = 0.1
 
     all_operations = len(origsubs)
 
@@ -324,7 +308,7 @@ def solveforcost(subset, D, cap):
         tour = tsp.get_approx_solution(two_opt)
         cost = get_cost(tour, tsp)
     else:
-        chains = lp_cap(subD,cap,maxtime=maxtime)
+        chains = lp_cap(subD,cap,maxtime)
         cost = 0
         for chain in chains:
             cost += get_cost(chain,tsp)

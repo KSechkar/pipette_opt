@@ -181,11 +181,14 @@ def subtour(edges):
 
 #-----------------GUROBI WITH CAPACITY------------
 #solver
-def lp_cap(D,cap,maxtime):
+def lp_cap(D, cap, maxtime):
     # PART 1: initial preparations
-    # set default maximum optimisation time if none nad-set
-    if(maxtime==None):
-        maxtime=30.0
+    # set maximum optimisation time
+    if (maxtime == None):
+        # default value:
+        mxt = 1  # optimisation time of more than 1s never lead to improved results, so is unnecessary
+    else:
+        mxt = maxtime
 
     # the array of node indices, is auxiliary
     global nodes
@@ -200,7 +203,7 @@ def lp_cap(D,cap,maxtime):
     # convert distance matrix into the dictionary format gurobi uses
     dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
 
-    #set output falg to 0 to stop gurobi from printing
+    #set output falg to 0 to stop gurobi from printing out the log
     env=gp.Env(empty=True)
     env.setParam('OutputFlag', 0)
     env.start()
@@ -230,7 +233,7 @@ def lp_cap(D,cap,maxtime):
         m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
 
     # PART 3: optimise the model
-    m.Params.TIME_LIMIT = maxtime
+    m.Params.TIME_LIMIT = mxt
     m.setObjective(gp.quicksum(vars[i, j] + vars[j, i] for i, j in combinations(nodes, 2)), GRB.MAXIMIZE)
     m.optimize()  # optimise while adding lazy subtour-eliminating constraints
 

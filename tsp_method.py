@@ -64,13 +64,14 @@ def main():
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
     w = wgenerator(96, 6, 6, 3, 4)
 
-    cap = capac(pipcap=10, dose=1, airgap=1)
+    # BASIC assembly uses 1.5uL of each DNA part. Assume air gap of same volume?
+    cap = capac(pipcap=10, dose=1.5, airgap=0.5)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord='sametogether', filename=None, cap=cap)
+    tsp_method(w, fin, reord='greedy', filename=None, cap=cap)
 
     dispoper(fin)
 
@@ -164,7 +165,7 @@ def singlesub(subset, D, fin, cap):
         if (len(subD) == 2):
             chains = [[0, 1]]
         else:
-            chains = lp_cap(subD, cap, 30)
+            chains = lp_cap(subD, cap,maxtime=None)
 
         # record in fin
         for chain in chains:
@@ -173,7 +174,7 @@ def singlesub(subset, D, fin, cap):
 
     else: # no adjustment for capacity
         if (len(subD) == 2):
-            chains = [[0, 1]]
+            tour = [0, 1]
         else:
             tour = tsp_lp_gurobi(subD)
         # record in fin
