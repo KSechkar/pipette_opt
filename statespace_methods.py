@@ -9,7 +9,7 @@ from math import sqrt
 # import functions from own files
 from input_generator import wgenerator
 from auxil import *
-from tsp_reorder import sametogether
+from tsp_reorder import sametogether, leastout
 
 # match reagents with their addresses in w
 ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
@@ -94,13 +94,13 @@ def main():
 
     # determine how many vector doses a pipette can hold (capacity)
     # for now, values selected manually in the order: pipette capacity, reagent volume, air gap volume
-    cap = capac(pipcap=300,dose=40,airgap=10)
+    cap = capac(pipcap=10,dose=1.5,airgap=1.5)
 
     # use nearest-neighbour tree search to solve the problem
-    # iddfs(w, fin, 1,reord=None, cap=cap)
+    # iddfs(w, fin, 1,reord='sametogether', cap=cap)
 
     # use iddfs to solve the problem
-    # iddfs(w, fin, 2, reord=None, cap=cap)
+    iddfs(w, fin, 1, reord='leastout', cap=cap)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
@@ -109,7 +109,7 @@ def main():
     # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
     
     # use monte-carlo tree search to solve the problem
-    montecarlo(w,fin,0.1,cap=cap)
+    # montecarlo(w,fin,0.1,cap=cap)
 
     dispoper(fin)
 
@@ -395,11 +395,13 @@ def getops(w, ops, reord):
                 ops.append(Oper(w[well][reagent], well))
         np.random.shuffle(ops)
         return
-    if (reord == 'justsubsets' or reord == 'sametogether'):
+    if (reord == 'leastout' or reord == 'sametogether' or reord == 'justsubsets'):
         subsets = []
         w_to_subsets(w, subsets)
         if (reord == 'sametogether'):
             sametogether(subsets, len(w))
+        else:
+            leastout(subsets,len(w))
         subsets_to_ops(subsets, ops)
 
 

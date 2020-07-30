@@ -9,7 +9,7 @@ import statistics as stats
 from tsp_method import tsp_method
 from statespace_methods import iddfs, greedy_tree
 from input_generator import wgenerator, inputlist
-from auxil import route_cost_with_w
+from auxil import route_cost_with_w, capac
 
 
 # --------------------------------MAIN---------------------------------
@@ -25,9 +25,9 @@ def main():
 
     # initialise results arrays with row labels
     means = [['TSP-random'], ['TSP'], ['TSP-sametogether'],
-             ['TSP-nearest neighbour'], ['TSP-iddfs depth 2'], ['TSP-leastout'],
-             ['TSP-greedy'],
-             ['Nearest Neighbour'], ['iddfs depth 2'], ['Greedy'],
+               ['TSP-nearest neighbour'], ['TSP-iddfs depth 2'], ['TSP-leastout'],
+               ['TSP-greedy'],
+               ['Nearest Neighbour'], ['iddfs depth 2'], ['Greedy'],
                ['Nearest Neighbour+sametogether'], ['iddfs depth 2+sametogether'],
                ['Greedy+sametogether']]
     medians=[['TSP-random'], ['TSP'], ['TSP-sametogether'],
@@ -43,6 +43,8 @@ def main():
                ['Nearest Neighbour+sametogether'], ['iddfs depth 2+sametogether'],
                ['Greedy+sametogether']]
 
+    # pipette capacity
+    cap = capac(10, 1.5, 1)
 
     #get results
     for i in range(MINI,MAXI):
@@ -60,9 +62,9 @@ def main():
                     fin = []
                     if(means[itr][0][0:3]=='TSP'):
                         if(len(means[itr][0])==3):
-                            tsp_method(w,fin,reord=None,filename=None)
+                            tsp_method(w,fin,reord=None,filename=None,cap=cap)
                         else:
-                            tsp_method(w,fin,means[itr][0][4:],filename=None)
+                            tsp_method(w,fin,means[itr][0][4:],filename=None,cap=cap)
                     else:
                         #define reordering
                         if(means[itr][0][-12:]=='sametogether'):
@@ -72,14 +74,14 @@ def main():
 
                         #get solution
                         if(means[itr][0][:7]=='Nearest'):
-                            iddfs(w,fin,1,True,reord)
+                            iddfs(w,fin,1,True,reord,cap)
                         elif(means[itr][0][:5]=='iddfs'):
-                            iddfs(w,fin,2,True,reord)
+                            iddfs(w,fin,2,True,reord,cap)
                         elif (means[itr][0][:6] == 'Greedy'):
-                            greedy_tree(w, fin, 'optimistic', reord)
+                            greedy_tree(w, fin, 'optimistic+cap', reord,cap)
 
                     #get route cost and record
-                    rc=route_cost_with_w(fin,w)
+                    rc=route_cost_with_w(fin,w,cap)
                     all_sols[itr].append(rc)
 
         #get means/medians/standard devioations and record
@@ -160,7 +162,8 @@ def runtest(filename,hm_inputs):
             elif(j==1):
                 greedy_tree(w,fin,'optimistic',reord)
             else:"""
-            tips=tsp_method(w,fin,reord,filename=None)
+            cap = capac(10, 1.5, 1)
+            tips=tsp_method(w,fin,reord,filename=None,cap=cap)
 
             #tsp_method(w,fin,various_reorderings[j],None)
             allsolutions[j].append(str(tips))

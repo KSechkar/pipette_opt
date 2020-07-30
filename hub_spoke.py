@@ -110,9 +110,9 @@ def main():
     time1 = time.time()
 
     # define capacity-related information
-    pipinfo={'pipcap': 10, 'onedose':1, 'airgap': 1}
+    pipinfo={'pipcap': 10, 'onedose':1.5, 'airgap': 1.5}
     # call solver
-    hubspoke(w,fin,pipinfo=None)
+    hubspoke(w,fin,pipinfo)
 
     # PERFORMANCE EVALUATION: print the working time
     dispoper(fin)
@@ -162,12 +162,14 @@ def hubspoke(w,fin,pipinfo):
     # purgerank(3)
 
     # TEST ONLY
+    """
     ranked = 0
     for rank in range(1,4):
         for h in hubs[rank].values():
             if(len(h.wells)!=0):
                 ranked += len(h.wells)
     print(ranked)
+    """
 
     # record operations
     makefin(w,fin)
