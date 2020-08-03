@@ -4,6 +4,7 @@
 
 import numpy as np
 import json
+import csv
 
 #match reagents with their addresses in w
 ADDRESS={'p': 0, 'r': 1, 'c': 2, 't': 3}
@@ -49,6 +50,18 @@ def capac(pipcap, dose, airgap):
     cap = int(pipcap / doseandgap)  # get how many collections followed by gap will fit
     if (dose <= (pipcap - cap * doseandgap)):  # see if a final collection without air gap would also fit
         cap += 1
+    return cap
+
+# selects a common capacity (i.e. minimum capacity among all components) using information from a .csv file
+# .csv file format is: reagent name, dose
+def commoncapac(pipcap, airgap, filename):
+    with open(filename, mode="r+") as doses:
+        doses_r = csv.reader(doses)
+        maxdose = -1  # giaranteed to be replaced
+        for entry in doses_r:
+            if (float(entry[1]) > maxdose):
+                maxdose = float(entry[1])
+    cap = capac(pipcap=pipcap, airgap=airgap, dose=maxdose)
     return cap
 
 
