@@ -9,7 +9,7 @@ import statistics as stats
 from tsp_method import tsp_method
 from statespace_methods import iddfs, greedy_tree
 from input_generator import wgenerator, inputlist
-from auxil import route_cost_with_w, capac
+from auxil import route_cost_with_w, capac, commoncapac
 
 
 # --------------------------------MAIN---------------------------------
@@ -44,7 +44,9 @@ def main():
                ['Greedy+sametogether']]
 
     # pipette capacity
-    cap = capac(10, 1.5, 1)
+    # find least capacity of all to make it the common value
+    # With 40fmol of each part and concentrations from 'Start-Stop Assembly Calculator' it'll be 5
+    cap = commoncapac(pipcap=10,airgap=1,filename='input/doses.csv')
 
     #get results
     for i in range(MINI,MAXI):
@@ -90,7 +92,7 @@ def main():
             medians[itr].append(str(stats.median(all_sols[itr])))
             stdevs[itr].append(str(stats.stdev(all_sols[itr])))
 
-        with open('progress_log.txt',mode="w+") as progress:
+        with open('progress/log.txt',mode="w+") as progress:
             progress.write('Case for '+str(i)+' wells processed - '+str(96-i)+' to go')
 
     #record results in output files

@@ -108,7 +108,7 @@ def reorder_iddfs(origsubs, subsets, D, depth,cap):
     Dupdate(D, subsets[-1])
 
     while (len(subsets) < all_operations):
-        print(len(subsets))
+        # print(len(subsets))
 
         nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth,cap)
         subsets.append(origsubs[nextop])
