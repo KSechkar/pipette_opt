@@ -62,7 +62,7 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    w = wgenerator(96, 6, 6, 3, 4)
+    #w = wgenerator(96, 6, 6, 3, 4)
 
     # BASIC assembly uses 1.5uL of each DNA part. Assume air gap of same volume?
     cap = capac(pipcap=10, dose=1.5, airgap=0.5)
@@ -163,7 +163,7 @@ def singlesub(subset, D, fin, cap):
     # PART 3: solve TSP for the subset
     if(cap!=None): #adjusting for capacity
         if (len(subD) == 2):
-            chains = [[0, 1]]
+            chains = [[1]]
         else:
             chains = lp_cap(subD, cap,maxtime=None)
 
