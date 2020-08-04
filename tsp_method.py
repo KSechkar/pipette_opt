@@ -49,10 +49,10 @@ class Oper:
 # Will be replaced by a test example generator or manual input reading function
 
 # this is the example given to me in the main pipette_opt file
-w = [['p1', 'r2', 'c4', 't2'],
-     ['p1', 'r2', 'c1', 't2'],
-     ['p1', 'r3', 'c2', 't1'],
-     ['p2', 'r3', 'c1', 't1']]
+w1 = [['p1', 'r2', 'c4','t1','f15'],
+     ['p2', 'r2', 'c1','t1','f14'],
+     ['p1', 'r3', 'c2','t2','f14'],
+     ['p2', 'r3', 'c1', 't1', 'f14']]
 
 
 # -------------------------------MAIN-------------------------------
@@ -62,7 +62,7 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    w = wgenerator(96, 6, 6, 3, 4)
+    # w = wgenerator(96, 6, 6, 3, 4)
 
     # BASIC assembly uses 1.5uL of each DNA part. Assume air gap of same volume?
     cap = capac(pipcap=10, dose=1.5, airgap=0.5)
@@ -71,14 +71,13 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord='greedy', filename=None, cap=cap)
+    tsp_method(w1, fin, reord='sametogether', filename=None, cap=cap)
 
     dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    #print('The total number of pipette tips used is ' + str(tips)) #IRRELEVANT WITH LP SOLVER => COMMENTED
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, cap)))
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w1, cap)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -91,7 +90,7 @@ def tsp_method(w, fin, reord, filename, cap):
     if (filename == None):
         w_to_subsets(w, subsets)
     else:
-        dic = jsonreader(filename, subsets=subsets, w=None)
+        dic = jsonreader(filename, subsets=subsets, w=None, ignorelist=['backbone'])
 
     D = np.zeros((len(w), len(w)))  # initialise the matrix of distances, i.e. our graph of wells
     for i in range(0, len(D)):  # forbid going from one node to itself by setting a very high cost
@@ -106,9 +105,9 @@ def tsp_method(w, fin, reord, filename, cap):
     elif (reord == 'random with time seed'):  # ...randomly using time as a seed
         np.random.RandomState(seed=round(time.time())).shuffle(subsets)
     elif (reord == 'leastout'):  # ...leastout
-        leastout(subsets, len(w))
+        leastout(subsets, w)
     elif (reord == 'sametogether'):  # ...sametogether
-        sametogether(subsets, len(w))
+        sametogether(subsets, w)
     elif(reord!=None):  # (various state-space reorderings)
         origsubs = subsets.copy()
         subsets = []
@@ -163,7 +162,7 @@ def singlesub(subset, D, fin, cap):
     # PART 3: solve TSP for the subset
     if(cap!=None): #adjusting for capacity
         if (len(subD) == 2):
-            chains = [[0, 1]]
+            chains = [[1]]
         else:
             chains = lp_cap(subD, cap,maxtime=None)
 

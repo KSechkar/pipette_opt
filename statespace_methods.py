@@ -11,9 +11,6 @@ from input_generator import wgenerator
 from auxil import *
 from tsp_reorder import sametogether, leastout
 
-# match reagents with their addresses in w
-ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
-
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Final output format is an array of Operations - will be the same for ALL methods
@@ -74,10 +71,10 @@ class Treenode:
 # Will be replaced by a test example generator or manual input reading function
 
 # this is the example given to me in the main pipette_opt file
-w = [['p1', 'r2', 'c4', 't2'],
-     ['p2', 'r2', 'c1', 't2'],
-     ['p1', 'r3', 'c2', 't1'],
-     ['p2', 'r3', 'c1', 't1']]
+w1 = [['p1', 'r2', 'c4','t1','f15'],
+     ['p2', 'r2', 'c1','t1','f14'],
+     ['p1', 'r3', 'c2','t2','f14'],
+     ['p2', 'r3', 'c1', 't1', 'f14']]
 
 
 # -------------------------------MAIN-------------------------------
@@ -87,7 +84,7 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to dfine the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    w = wgenerator(96, 6, 6, 3, 4)
+    # w = wgenerator(96, 6, 6, 3, 4)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
@@ -97,18 +94,18 @@ def main():
     cap = capac(pipcap=10,dose=1.5,airgap=1.5)
 
     # use nearest-neighbour tree search to solve the problem
-    # iddfs(w, fin, 1,reord='sametogether', cap=cap)
+    iddfs(w1, fin, 1,reord=None, cap=cap)
 
     # use iddfs to solve the problem
-    iddfs(w, fin, 1, reord='leastout', cap=cap)
+    # iddfs(w1, fin, 2, reord=None, cap=cap)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    # greedy_tree(w, fin, 'optimistic+cap', reord=None, cap=cap)
+    # greedy_tree(w1, fin, 'optimistic+cap', reord=None, cap=cap)
     
-    # use monte-carlo tree search to solve the problem
+    # use monte-carlo tree search to solve the problem (WORKING REALLY BADLY)
     # montecarlo(w,fin,0.1,cap=cap)
 
     dispoper(fin)
@@ -116,7 +113,7 @@ def main():
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
 
-    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w,cap)))
+    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w1,cap)))
 
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
@@ -125,8 +122,14 @@ def iddfs(w, fin, depth, reord,cap):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # if we want to randomise the operation order
-    # np.random.shuffle(ops)
+    # get addresses of reagent types in w
+    address = addrfromw(w)
+
+    # make w, address and capacity global for simplicity
+    global globw, globcap, globaddress
+    globw = w
+    globaddress = address
+    globcap = cap
 
     all_operations = len(w) * len(w[0])
 
@@ -135,12 +138,12 @@ def iddfs(w, fin, depth, reord,cap):
 
     # if (with_w):
     added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-    added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+    added[fin[0].well][address[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
         # if (with_w):
-        nextop = iddfs_oneiter_with_w(ops, fin, 1, depth, w, added,cap)
-        added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
+        nextop = iddfs_oneiter_with_w(ops, fin, 1, depth,added)
+        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
         # else:
             # nextop = iddfs_oneiter(ops, fin, 1, depth)
         fin.append(ops[nextop])
@@ -168,25 +171,25 @@ def iddfs_oneiter(ops, fin, curdepth, depth):
 
 
 # single iteration of iddfs (with w)
-def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added,cap):
+def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added,cap))
+        potcost.append(cost_func_with_w(fin, ops[i], globw, added, globcap))
         # next iteration
         if (curdepth < depth and len(ops) != 1):
             # change the inputs for next iteration
-            added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 1
+            added[ops[i].well][globaddress[ops[i].reag[0]]] = 1
             fin.append(ops[i])
             ops.pop(i)
 
             # call next iteration
-            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, w, added, cap)
+            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, added)
 
             # change the inputs back
             ops.insert(i, fin[len(fin) - 1])
             fin.pop()
-            added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 0
+            added[ops[i].well][globaddress[ops[i].reag[0]]] = 0
 
     # act according to the determined costs
     if (curdepth == 1):
@@ -248,8 +251,13 @@ def greedy_tree(w, fin, heur, reord,cap):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # if we want to randomise the operation order
-    # np.random.shuffle(ops)
+    # get addresses of reagent types in w
+    address = addrfromw(w)
+
+    # make w, address and capacity global for simplicity
+    global globw, globcap, globaddress
+    globw = w
+    globcap = cap
 
     all_operations = len(w) * len(w[0])
 
@@ -257,24 +265,24 @@ def greedy_tree(w, fin, heur, reord,cap):
     ops.pop(0)
 
     added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-    added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+    added[fin[0].well][address[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
         #print(len(fin))
-        nextop = greedy_tree_onestep(ops, fin, w, added, heur,cap)
-        added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
+        nextop = greedy_tree_onestep(ops, fin, w, added, heur)
+        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
 
         fin.append(ops[nextop])
         ops.pop(nextop)
 
 
-def greedy_tree_onestep(ops, fin, w, added, heur,cap):
+def greedy_tree_onestep(ops, fin, w, added, heur):
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added,cap))  # cost function
+        potcost.append(cost_func_with_w(fin, ops[i], w, added, globcap))  # cost function
         fin.append(ops[i])
         ops.pop(i)
-        potcost[-1] += h_tree(fin, ops, heur,cap)  # heurstic
+        potcost[-1] += h_tree(fin, ops, heur)  # heurstic
         ops.insert(i, fin[-1])
         fin.pop()
 
@@ -283,7 +291,7 @@ def greedy_tree_onestep(ops, fin, w, added, heur,cap):
 
 
 # heuristic function
-def h_tree(state, unstate, heur,cap):
+def h_tree(state, unstate, heur):
     if (heur == 'optimistic'):  # h is the forecoming number of tip changes assuming we don't have to do extra changes
         already = []
         for unop in unstate:
@@ -301,10 +309,10 @@ def h_tree(state, unstate, heur,cap):
         est_cost=0
         for subset in subsets:
             est_cost+=1
-            est_cost+=round(len(subset.wells)/cap)
+            est_cost+=round(len(subset.wells)/globcap)
         return est_cost
 
-
+"""
 # -------------------------------MONTE-CARLO-------------------------------
 def montecarlo(w, fin, simtime, cap):
     ops = []  # an Oper list of operations to be performed
@@ -379,6 +387,7 @@ def clearkids(kids):
         if(i!=best):
             kids[i].allclear()
     return best # return where to go next
+"""
 
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w

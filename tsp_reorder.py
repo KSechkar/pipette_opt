@@ -56,7 +56,9 @@ def main():
 
 # -------------SIMPLE REORDERINGS----------------
 # totalwells is the total number of wells in the input
-def leastout(subsets, totalwells):
+def leastout(subsets, w):
+    # get length of w
+    totalwells=len(w)
     # determine the number of outgoing edges for each subset
     for i in range(0, len(subsets)):
         subsets[i].outgoing = len(subsets[i].wells) * (totalwells - len(subsets[i].wells))
@@ -65,14 +67,23 @@ def leastout(subsets, totalwells):
     subsets.sort(key=lambda subsets: subsets.outgoing)
 
 
-def sametogether(subsets, totalwells):
-    # intialise the 4 lists of same-type reagent subsets
-    together = [Sametogether('p'), Sametogether('r'), Sametogether('c'), Sametogether('t')]
+def sametogether(subsets, w):
+    # get dimensions of w
+    totalwells = len(w)
+    if(totalwells!=0):
+        totaltypes = len(w[0])
+    else:
+        totaltypes=0
+
+    # intialise the lists of same-type reagent subsets
+    together=[]
+    for i in range(0,totaltypes):
+        together.append(Sametogether(w[0][i][0]))
 
     # distribute the subsets among the lists, calculate the total number of outgoing edges for each list
     for i in range(0, len(subsets)):
-        # find into which of 4 list we put it
-        for position in range(0, 4):
+        # find into which list we put it
+        for position in range(0, totaltypes):
             if (subsets[i].reag[0] == together[position].reagtype):
                 break
 
@@ -80,12 +91,12 @@ def sametogether(subsets, totalwells):
         together[position].outgoing += len(subsets[i].wells) * (totalwells - len(
             subsets[i].wells))  # update number of outgoing edges (for further OPTIONAL sorting)
 
-    # sort the 4 lists by the number of outgoing edges (OPTIONAL)
+    # sort the lists by the number of outgoing edges (OPTIONAL)
     together.sort(key=lambda together: together.outgoing)
 
     # record the rearranged subsets
-    inlist = 0  # counter within one of the 4 lists
-    whichlist = 0  # which of the 4 lists is current
+    inlist = 0  # counter within one of the lists
+    whichlist = 0  # which of the lists is current
     for i in range(0, len(subsets)):
         subsets[i] = together[whichlist].subs[inlist]
         inlist += 1
