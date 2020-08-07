@@ -62,7 +62,7 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    # w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # BASIC assembly uses 1.5uL of each DNA part. Assume air gap of same volume?
     cap = capac(pipcap=10, dose=1.5, airgap=0.5)
@@ -71,13 +71,13 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w1, fin, reord='sametogether', filename=None, cap=cap)
+    tsp_method(w, fin, reord='sametogether', filename=None, cap=cap)
 
     dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w1, cap)))
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, cap)))
 
 
 # ---------------------SOLVER FUNCTION-------------------------------
@@ -126,7 +126,7 @@ def tsp_method(w, fin, reord, filename, cap):
     # implement the algorithm
     for i in range(0, len(subsets)):
         singlesub(subsets[i], D, fin, cap)
-        print(str(i+1) + ' of ' + str(len(subsets)) + ' subsets processed')
+        # print(str(i+1) + ' of ' + str(len(subsets)) + ' subsets processed')
 
 
 # ---------------------SUBSET DISPLAY-------------------------------
@@ -173,11 +173,11 @@ def singlesub(subset, D, fin, cap):
 
     else: # no adjustment for capacity
         if (len(subD) == 2):
-            tour = [0, 1]
+            tour = [0,1]
         else:
             tour = tsp_lp_gurobi(subD)
         # record in fin
-        for i in range(0,len(tour)):
+        for i in range(1,len(tour)):
             fin.append(Oper(subset.reag, subset.wells[tour[i]-1]))
 
     # PART 5: return the adjusted number of pipette tip changes [IRRELEVANT WITH LP SOLVER => COMMENTED]

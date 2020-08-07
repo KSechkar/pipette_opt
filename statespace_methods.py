@@ -408,9 +408,9 @@ def getops(w, ops, reord):
         subsets = []
         w_to_subsets(w, subsets)
         if (reord == 'sametogether'):
-            sametogether(subsets, len(w))
+            sametogether(subsets, w)
         else:
-            leastout(subsets,len(w))
+            leastout(subsets,w)
         subsets_to_ops(subsets, ops)
 
 

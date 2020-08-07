@@ -4,7 +4,6 @@
 # By Kirill Sechkar
 # v0.1.1, 22.7.20
 
-import cvxpy as cvx
 import numpy as np
 import time
 
