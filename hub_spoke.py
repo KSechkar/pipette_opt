@@ -7,9 +7,7 @@ import time
 from itertools import combinations, product
 
 from input_generator import wgenerator
-from auxil import dispoper, capac
-
-ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
+from auxil import dispoper, capac, addrfromw
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Final output format is an array of Operations - will be the same for ALL methods
@@ -42,9 +40,13 @@ class Hub:
         self.reags = reags # the reagent mixed in the hub
         self.rank = len(reags) # hub rank
 
-        self.next=[0,1,2,3] # which type reagents we add added to a served well next (e.g. '0' for 'p' if hub has 'r,c,t')
+
+        self.next=[] # which type reagents we add added to a served well next (e.g. '0' for 'p' if hub has 'r,c,t')
+        for i in range(0,len(globw[0])):
+            self.next.append(i)
+        typad = addrfromw(globw)  # get reagent type addresses from w
         for r in reags:
-            self.next.pop(self.next.index(ADDRESS[r[0]]))
+            self.next.pop(self.next.index(typad[r[0]]))
 
         self.wells=[] # list of wells
         self.sets={} # wells get promoted to a higher-ranked hub in sets if they can be transferred to the same hub
@@ -91,10 +93,10 @@ class Hub:
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
-w = [['p1', 'r2', 'c4', 't2'],
-     ['p1', 'r2', 'c5', 't2'],
-     ['p1', 'r2', 'c2', 't2'],
-     ['p1', 'r2', 'c1', 't2']]
+w1 = [['p1', 'r2', 'c4','t1','f15'],
+     ['p2', 'r2', 'c1','t1','f14'],
+     ['p1', 'r3', 'c2','t2','f14'],
+     ['p2', 'r3', 'c1', 't1', 'f14']]
 
 
 # -------------------------------MAIN (TESTING ONLY)-------------------------------
@@ -110,9 +112,9 @@ def main():
     time1 = time.time()
 
     # define capacity-related information
-    pipinfo={'pipcap': 10, 'onedose':1.5, 'airgap': 1.5}
+    pipinfo={'pipcap': 10, 'onedose':1.1, 'airgap': 1}
     # call solver
-    hubspoke(w,fin,pipinfo)
+    hubspoke(w1,fin,pipinfo)
 
     # PERFORMANCE EVALUATION: print the working time
     dispoper(fin)
@@ -122,47 +124,61 @@ def main():
 
 # -------------------------------SOLVER-------------------------------
 # solver function, returns cost
-def hubspoke(w,fin,pipinfo):
+def hubspoke(w, fin, pipinfo):
+    # make global copy of w (to avoid passing it many times between functions)
+    global globw
+    globw = w
+
     # get list of reagents (sortent and unsorted by type)
-    reaglist,listall=countreags(w)
+    reaglist, listall = countreags()
+
+    # determine the highest possible rank boundary (might change)
+    hirank=len(reaglist)+1
+    if (hirank > 4): # only hubs of rank up to 3 are supported, so cut off any higher ranks
+        hirank = 4
+
+    # get capaicty constraints for each rank,
+    global caps
+    caps = {}
+    if (pipinfo != None):
+        for i in range(1, hirank):
+            caps[i] = capac(pipinfo['pipcap'], i * pipinfo['onedose'], pipinfo['airgap'])  # get capacity
+
+            if (caps[i] == 0):  # zero capacity => is the ACTUAL boundary (higher-rank hubs can't deliver to spokes)
+                hirank = i
+                break
+    else:
+        for i in range(1, hirank):
+            caps[i] = 96
 
     # get unfilled hubs
     global hubs
-    hubs={1:{},2:{},3:{}}
-    for n in reaglist.keys():
-        hubs[1].update({(i): Hub(tuple([i])) for i in reaglist[n]})
-    for m,n in combinations(reaglist.keys(),2):
-        hubs[2].update({(i,j): Hub((i,j)) for i,j in product(reaglist[m],reaglist[n])})
-    for m,n,o in combinations(reaglist.keys(),3):
-        hubs[3].update({(i,j,k): Hub((i,j,k)) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
+    hubs={}
+    for i in range(1,hirank): #initalise
+        hubs[i]={}
 
-    # get capaicty constraints
-    global caps
-    caps = {}
-    if(pipinfo != None):
-        caps[1] = capac(pipinfo['pipcap'], pipinfo['onedose'], pipinfo['airgap'])  # capacity for one-reagent delivery
-        caps[2] = capac(pipinfo['pipcap'], 2*pipinfo['onedose'], pipinfo['airgap'])  # capacity for two-reagent delivery
-        caps[3] = capac(pipinfo['pipcap'], 3*pipinfo['onedose'], pipinfo['airgap'])  # capacity for two-reagent delivery
-    else:
-        caps[1] = 96
-        caps[2] = 96
-        caps[3] = 96
+    if(hirank>1): # create hubs of rank 1 if possible
+        for n in reaglist.keys():
+            hubs[1].update({(i): Hub(tuple([i])) for i in reaglist[n]})
+    if(hirank>2): # create hubs of rank 2 if possible
+        for m,n in combinations(reaglist.keys(),2):
+            hubs[2].update({(i,j): Hub((i,j)) for i,j in product(reaglist[m],reaglist[n])})
+    if(hirank>3): # create hubs of rank 3 if possible
+        for m,n,o in combinations(reaglist.keys(),3):
+            hubs[3].update({(i,j,k): Hub((i,j,k)) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
+
+
 
     # assign each well to SOME level-1 hub
-    for i in range(0,len(w)):
-        # randreag=np.random.randint(0,4)
+    for i in range(0,len(globw)):
         randreag=0
-        hubs[1][w[i][randreag]].getwell(Hubwell(w[i],i,[0]))
+        hubs[1][globw[i][randreag]].getwell(Hubwell(globw[i],i,[0]))
 
-    # promote wells to rank-2 hubs
-    rankup(1)
-    # promote wells to rank-3 hubs
-    rankup(2)
-    # purge the highest rank of one-well hubs
-    # purgerank(3)
+    for r in range(2,hirank):
+        rankup(r-1)
 
-    # TEST ONLY
     """
+    TEST ONLY
     ranked = 0
     for rank in range(1,4):
         for h in hubs[rank].values():
@@ -172,26 +188,29 @@ def hubspoke(w,fin,pipinfo):
     """
 
     # record operations
-    makefin(w,fin)
+    makefin(fin)
 
     return costfromhubs()
 
 
 # -------------------------------FUNCTIONS USED BY SOLVER-------------------------------
 # create a list of all reagents used
-def countreags(w):
-    reaglist={'p':[],'r':[],'c':[],'t':[]}
+def countreags():
+    reaglist = {} # list of all reagents, grouped by type
+    for t in globw[0]:
+        reaglist[t[0]]=[]
+
     listall=[]
-    for i in range(0, len(w)):
-        for j in range(0, 4):
+    for i in range(0, len(globw)):
+        for j in range(0, len(globw[0])):
             match = False
-            for r in reaglist[w[i][j][0]]:
-                if (r == w[i][j]):
+            for r in reaglist[globw[i][j][0]]:
+                if (r == globw[i][j]):
                     match = True
                     break
             if not (match):
-                reaglist[w[i][j][0]].append(w[i][j])
-                listall.append(w[i][j])
+                reaglist[globw[i][j][0]].append(globw[i][j])
+                listall.append(globw[i][j])
     return reaglist,listall
 
 
@@ -206,8 +225,8 @@ def rankup(rank):
             improvement = 0
             for s in hub.sets:
                 # get by how much promoting the set would improve situation
-                nextaddress = addr(hub.reags + tuple([s]))
-                nexthublen = len(hubs[rank + 1][nextaddress].wells)
+                nexthublink = sorthublink(hub.reags + tuple([s]))
+                nexthublen = len(hubs[rank + 1][nexthublink].wells)
                 hublen = len(hub.wells)
                 setlen = len(hub.sets[s])
                 tipsnow = hubtips(hublen,rank) + hubtips(nexthublen,rank+1)
@@ -223,11 +242,11 @@ def rankup(rank):
                 break
 
             #promote best set
-            nextaddress = addr(hub.reags + tuple([bestset]))
+            nexthublink = sorthublink(hub.reags + tuple([bestset]))
             for iw in hub.sets[bestset]:
                 nuwell = hub.wells[iw]
                 nuwell.origins.append(hub.reags)
-                hubs[rank + 1][nextaddress].getwell(nuwell)
+                hubs[rank + 1][nexthublink].getwell(nuwell)
                 delwell.append(iw)
             # clear current set, remove promoted wells from remaining sets
             hub.setout(bestset)
@@ -257,11 +276,12 @@ def purgerank(rank):
     return 0
 
 
-# address of a hub has a strict ordering of reagent types: p before r before c before t
-# this function makes unordered address ordered
-def addr(reags):
+# link to a hub has a strict ordering of reagent types as outlined by addresses typad
+# this function makes unordered liks ordered
+def sorthublink(reags):
     ordered=[]
-    for type in 'prct':
+    typad=addrfromw(globw)
+    for type in sorted(typad, key=typad.get):
         for r in reags:
             if (r[0]==type):
                 ordered.append(r)
@@ -275,17 +295,17 @@ def addr(reags):
 
 
 # create final list of operations using hub output
-def makefin(w,fin):
+def makefin(fin):
     for hub in hubs[1].values():
         if(len(hub.wells)!=0):
             for hubwell in hub.wells:
                 fin.append(Oper(hub.reags[0],hubwell.wellno))
             for hubwell in hub.wells:
                 for n in hub.next:
-                    fin.append(Oper(w[hubwell.wellno][n],hubwell.wellno))
+                    fin.append(Oper(globw[hubwell.wellno][n],hubwell.wellno))
 
     multiwell = 100
-    for rank in range(2,4):
+    for rank in range(2,len(hubs)+1):
         for hub in hubs[rank].values():
             if (len(hub.wells)!=0):
                 multireag = ''
@@ -299,13 +319,13 @@ def makefin(w,fin):
 
                 for hubwell in hub.wells:
                     for n in hub.next:
-                        fin.append(Oper(w[hubwell.wellno][n], hubwell.wellno))
+                        fin.append(Oper(globw[hubwell.wellno][n], hubwell.wellno))
 
 
 # calculate costs based on hub output
 def costfromhubs():
     cost = 0
-    for rank in range(1, 4):
+    for rank in range(1, len(hubs)+1):
         for hub in hubs[rank].values():
             cost += hubtips(len(hub.wells), rank)
     return cost
