@@ -49,10 +49,10 @@ class Oper:
 # Will be replaced by a test example generator or manual input reading function
 
 # this is the example given to me in the main pipette_opt file
-w1 = [['p1', 'r2', 'c4','t1','f15'],
-     ['p2', 'r2', 'c1','t1','f14'],
-     ['p1', 'r3', 'c2','t2','f14'],
-     ['p2', 'r3', 'c1', 't1', 'f14']]
+w = [['p1', 'r2', 'c4','t1'],
+     ['p2', 'r2', 'c1','t1'],
+     ['p1', 'r3', 'c2','t2'],
+     ['p2', 'r3', 'c1', 't1']]
 
 
 # -------------------------------MAIN-------------------------------
@@ -62,27 +62,40 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    #w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
-    # BASIC assembly uses 1.5uL of each DNA part. Assume air gap of same volume?
-    cap = capac(pipcap=10, dose=1.5, airgap=0.5)
+    # generate required volumes (for testing)
+    ss=[]
+    w_to_subsets(w,ss)
+    reqvols = {}
+    for s in ss:
+        if(s.reag[0]=='p'):
+            reqvols[s.reag]=1.09
+        elif(s.reag[0]=='r'):
+            reqvols[s.reag]=0.33
+        elif (s.reag[0] == 'c'):
+            reqvols[s.reag] = 0.36
+        else:
+            reqvols[s.reag] = 0.75
+
+    # get capacitites
+    caps=capacities(reqvols,10,1.0)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord='sametogether', filename=None, cap=cap)
+    tsp_method(w, fin, reord=None, filename=None, caps=caps)
 
     dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, cap)))
-
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
 
 # ---------------------SOLVER FUNCTION-------------------------------
 # solves the problem, returns total cost
-def tsp_method(w, fin, reord, filename, cap):
+def tsp_method(w, fin, reord, filename, caps):
     subsets = []  # array of all subsets (class Ss)
     tips = 0  # counts the total number of tip changes
 
@@ -112,11 +125,11 @@ def tsp_method(w, fin, reord, filename, cap):
         origsubs = subsets.copy()
         subsets = []
         if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. iddfs depth 1)
-            reorder_iddfs(origsubs, subsets, D.copy(), 1, cap)
+            reorder_iddfs(origsubs, subsets, D.copy(), 1, caps)
         elif (reord == 'iddfs depth 2'):  # ...iddfs
-            reorder_iddfs(origsubs, subsets, D.copy(), 2, cap)
+            reorder_iddfs(origsubs, subsets, D.copy(), 2, caps)
         elif (reord == 'greedy'):  # ...greedy tree search
-            reorder_greedy(origsubs, subsets, D.copy(), 'countall',cap)
+            reorder_greedy(origsubs, subsets, D.copy(), 'countall',caps)
         # elif (reord == 'a*'):  # ...A*  tree search
             # reorder_a_star(origsubs, subsets, D.copy(), 'countall')
 
@@ -125,7 +138,7 @@ def tsp_method(w, fin, reord, filename, cap):
 
     # implement the algorithm
     for i in range(0, len(subsets)):
-        singlesub(subsets[i], D, fin, cap)
+        singlesub(subsets[i], D, fin, caps[subsets[i].reag])
         # print(str(i+1) + ' of ' + str(len(subsets)) + ' subsets processed')
 
 

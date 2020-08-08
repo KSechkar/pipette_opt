@@ -49,16 +49,11 @@ def capac(pipcap, dose, airgap):
         cap += 1
     return cap
 
-# selects a common capacity (i.e. minimum capacity among all components) using information from a .csv file
-# .csv file format is: reagent name, dose
-def commoncapac(pipcap, airgap, filename):
-    with open(filename, mode="r+") as doses:
-        doses_r = csv.reader(doses)
-        maxdose = -1  # giaranteed to be replaced
-        for entry in doses_r:
-            if (float(entry[1]) > maxdose):
-                maxdose = float(entry[1])
-    cap = capac(pipcap=pipcap, airgap=airgap, dose=maxdose)
+# determine how many doses of each part a pipette can hold (i.e. find capacities)
+def capacities(reqvols, pipcap, airgap):
+    cap={}
+    for reqvol in reqvols.keys():
+        cap[reqvol]=capac(pipcap,reqvols[reqvol],airgap)
     return cap
 
 
@@ -104,7 +99,7 @@ def cost_func(fin, op):
 
 
 # alterative way to determine operation cost by also knowing the the input well array
-def route_cost_with_w(fin,w,cap):
+def route_cost_with_w(fin,w,caps):
     added = np.zeros((len(w), len(w[0]))) #tells which reagents were added to which well
 
     # get addresses of reagent types in w
@@ -114,12 +109,12 @@ def route_cost_with_w(fin,w,cap):
     cost=1
     added[fin[0].well][address[fin[0].reag[0]]]=1
     for i in range(1, len(fin)):
-        cost += cost_func_with_w(fin[0:i], fin[i], w, added,cap)
+        cost += cost_func_with_w(fin[0:i], fin[i], w, added,caps)
         added[fin[i].well][address[fin[i].reag[0]]] = 1
     return cost
 
 
-def cost_func_with_w(fin,op,w,added,cap):
+def cost_func_with_w(fin,op,w,added,caps):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
     if(lastindex<0): #if no previous operations have been performed, we obviously need to put on a tip
@@ -139,9 +134,9 @@ def cost_func_with_w(fin,op,w,added,cap):
                     cost=1
 
         # take into account pipette capacity
-        if(cap!=None):
+        if(caps!=None):
             #only need to do that if cost is ostensibly 0 and the number of operations is less than the capacity
-            if((cost==0) and (len(fin)>=cap)):
+            if((cost==0) and (len(fin)>=caps[op.reag])):
                 # check if the next dose of vector doesn't fit into the pipette due to capacity limitations
                 # to do that, see how many doses of current reagent have been delivered
                 backforcap = 0
@@ -152,7 +147,7 @@ def cost_func_with_w(fin,op,w,added,cap):
                         break
 
                 # if capacity of the current pipette tip with this reagent is exceeded, will have to change tip
-                if(backforcap%cap==0):
+                if(backforcap%caps[op.reag]==0):
                     cost=1
 
     return cost

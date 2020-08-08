@@ -107,7 +107,7 @@ def sametogether(subsets, w):
 
 # -------------STATE-SPACE REORDERINGS----------------
 # iddfs
-def reorder_iddfs(origsubs, subsets, D, depth,cap):
+def reorder_iddfs(origsubs, subsets, D, depth,caps):
     # set maximum optimisation time for more than default, so that tree search is faster
     global maxtime
     maxtime=0.1
@@ -121,17 +121,17 @@ def reorder_iddfs(origsubs, subsets, D, depth,cap):
     while (len(subsets) < all_operations):
         # print(len(subsets))
 
-        nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth,cap)
+        nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth,caps)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
         Dupdate(D, subsets[-1])
 
 
-def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,cap):
+def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
-        potcost.append(solveforcost(origsubs[i], D,cap))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
         # next iteration
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
@@ -140,7 +140,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,cap):
             origsubs.pop(i)
 
             # call next iteration
-            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth,cap)
+            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
 
             # change the inputs back
             origsubs.insert(i, subsets[-1])
@@ -157,7 +157,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,cap):
 
 
 # greedy algorithm
-def reorder_greedy(origsubs, subsets, D, heur, cap):
+def reorder_greedy(origsubs, subsets, D, heur, caps):
     # set maximum optimisation time for more than default, so that tree search is faster
     global maxtime
     maxtime = 0.1
@@ -171,18 +171,18 @@ def reorder_greedy(origsubs, subsets, D, heur, cap):
     while (len(subsets) < all_operations):
         #print(len(subsets))
 
-        nextop = reorder_greedy_onestep(origsubs, subsets, D, heur,cap)
+        nextop = reorder_greedy_onestep(origsubs, subsets, D, heur,caps)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
         Dupdate(D, subsets[-1])
 
 
-def reorder_greedy_onestep(origsubs, subsets, D, heur,cap):
+def reorder_greedy_onestep(origsubs, subsets, D, heur,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
         # cost function component
-        potcost.append(solveforcost(origsubs[i], D,cap))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
 
         # heuristic component
         subsets.append(origsubs[i])

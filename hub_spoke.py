@@ -1,13 +1,12 @@
 # HUB-AND-SPOKE METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.2, 28.7.20
+# v0.0.3, 7.8.20
 
-import numpy as np
 import time
 from itertools import combinations, product
 
 from input_generator import wgenerator
-from auxil import dispoper, capac, addrfromw
+from auxil import *
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Final output format is an array of Operations - will be the same for ALL methods
@@ -36,10 +35,9 @@ class Hubwell:
 # Hub is a well where n reagents are mixed ( 1 <= n <= 3, 'hub rank' is the value of n)
 # Hubs of rank 1 are the actual reagent source wells, so they're treated quite differently
 class Hub:
-    def __init__(self,reags):
+    def __init__(self,reags,pipinfo):
         self.reags = reags # the reagent mixed in the hub
         self.rank = len(reags) # hub rank
-
 
         self.next=[] # which type reagents we add added to a served well next (e.g. '0' for 'p' if hub has 'r,c,t')
         for i in range(0,len(globw[0])):
@@ -51,6 +49,14 @@ class Hub:
         self.wells=[] # list of wells
         self.sets={} # wells get promoted to a higher-ranked hub in sets if they can be transferred to the same hub
                      # here, dictionary key is the extra reagent in the new hub
+
+        # CAPACITY DETERMINATION
+        # find volume to be delivered to each spoke from this hub (assuming perfect mixing)
+        delivol = 0
+        for r in reags:
+            delivol += pipinfo['reqvols'][r]
+
+        self.cap = capac(pipinfo['pipcap'],delivol,pipinfo['airgap'])
 
     # add a new well served by the hub
     def getwell(self, well):
@@ -93,10 +99,10 @@ class Hub:
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
-w1 = [['p1', 'r2', 'c4','t1','f15'],
-     ['p2', 'r2', 'c1','t1','f14'],
-     ['p1', 'r3', 'c2','t2','f14'],
-     ['p2', 'r3', 'c1', 't1', 'f14']]
+w = [['p1', 'r2', 'c4','t1'],
+     ['p2', 'r2', 'c1','t1'],
+     ['p1', 'r3', 'c2','t2'],
+     ['p2', 'r3', 'c1', 't1']]
 
 
 # -------------------------------MAIN (TESTING ONLY)-------------------------------
@@ -111,10 +117,24 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # define capacity-related information
-    pipinfo={'pipcap': 10, 'onedose':1.1, 'airgap': 1}
+    # define capacity-related information (not in testing, reqvols will be differently defined)
+    pipinfo={'pipcap': 10, 'airgap': 1, 'reqvols':{}}
+
+    # generate required volumes (for testing)
+    ss = []
+    w_to_subsets(w, ss)
+    for s in ss:
+        if (s.reag[0] == 'p'):
+            pipinfo['reqvols'][s.reag] = 1.09
+        elif (s.reag[0] == 'r'):
+            pipinfo['reqvols'][s.reag] = 0.33
+        elif (s.reag[0] == 'c'):
+            pipinfo['reqvols'][s.reag] = 0.36
+        else:
+            pipinfo['reqvols'][s.reag] = 0.75
+
     # call solver
-    hubspoke(w1,fin,pipinfo)
+    hubspoke(w,fin,pipinfo)
 
     # PERFORMANCE EVALUATION: print the working time
     dispoper(fin)
@@ -134,22 +154,9 @@ def hubspoke(w, fin, pipinfo):
 
     # determine the highest possible rank boundary (might change)
     hirank=len(reaglist)+1
+
     if (hirank > 4): # only hubs of rank up to 3 are supported, so cut off any higher ranks
         hirank = 4
-
-    # get capaicty constraints for each rank,
-    global caps
-    caps = {}
-    if (pipinfo != None):
-        for i in range(1, hirank):
-            caps[i] = capac(pipinfo['pipcap'], i * pipinfo['onedose'], pipinfo['airgap'])  # get capacity
-
-            if (caps[i] == 0):  # zero capacity => is the ACTUAL boundary (higher-rank hubs can't deliver to spokes)
-                hirank = i
-                break
-    else:
-        for i in range(1, hirank):
-            caps[i] = 96
 
     # get unfilled hubs
     global hubs
@@ -159,13 +166,13 @@ def hubspoke(w, fin, pipinfo):
 
     if(hirank>1): # create hubs of rank 1 if possible
         for n in reaglist.keys():
-            hubs[1].update({(i): Hub(tuple([i])) for i in reaglist[n]})
+            hubs[1].update({(i): Hub(tuple([i]),pipinfo) for i in reaglist[n]})
     if(hirank>2): # create hubs of rank 2 if possible
         for m,n in combinations(reaglist.keys(),2):
-            hubs[2].update({(i,j): Hub((i,j)) for i,j in product(reaglist[m],reaglist[n])})
+            hubs[2].update({(i,j): Hub((i,j),pipinfo) for i,j in product(reaglist[m],reaglist[n])})
     if(hirank>3): # create hubs of rank 3 if possible
         for m,n,o in combinations(reaglist.keys(),3):
-            hubs[3].update({(i,j,k): Hub((i,j,k)) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
+            hubs[3].update({(i,j,k): Hub((i,j,k),pipinfo) for i,j,k in product(reaglist[m],reaglist[n],reaglist[o])})
 
 
 
@@ -229,8 +236,9 @@ def rankup(rank):
                 nexthublen = len(hubs[rank + 1][nexthublink].wells)
                 hublen = len(hub.wells)
                 setlen = len(hub.sets[s])
-                tipsnow = hubtips(hublen,rank) + hubtips(nexthublen,rank+1)
-                tipsthen = hubtips(hublen - setlen,rank) + hubtips(nexthublen + setlen,rank+1)
+                nexthubcap=hubs[rank + 1][nexthublink].cap
+                tipsnow = hubtips(hublen,hub.cap,rank) + hubtips(nexthublen,nexthubcap,rank+1)
+                tipsthen = hubtips(hublen - setlen,hub.cap,rank) + hubtips(nexthublen + setlen,nexthubcap,rank+1)
                 thisimprovement = tipsnow - tipsthen
 
                 # if this is the new most-improved player, record that
@@ -327,16 +335,18 @@ def costfromhubs():
     cost = 0
     for rank in range(1, len(hubs)+1):
         for hub in hubs[rank].values():
-            cost += hubtips(len(hub.wells), rank)
+            cost += hubtips(len(hub.wells), hub.cap, rank)
     return cost
 
 
-def hubtips(hublen, rank):
-    if (hublen == 0):
+def hubtips(hublen, hubcap, rank):
+    if (hublen == 0): # no wells => no tips at all needed
         return 0
+    elif(hubcap==0): # if there is no way to deliver even one dose in a pipette at all
+        return np.inf
     else:
-        cost = rank * np.ceil(hublen / caps[1])  # number of tips needed to make the hub mixture
-        cost += np.ceil(hublen / caps[rank]) - 1  # no. of tips to deliver mixture. -1 as we reuse last tip from before
+        cost = rank * np.ceil(hublen / hubcap)  # number of tips needed to make the hub mixture
+        cost += np.ceil(hublen / hubcap) - 1  # no. of tips to deliver mixture. -1 as we reuse last tip from before
         coeff = 4 - rank
         cost += coeff * hublen  # number of tips to deliver remaining reagents to spoke wells
         return cost
