@@ -4,6 +4,7 @@ Latest change: 22 July 2020 - tsp method now supports limited pipette capacity; 
 
 The branch CAPACITY introduced pipette capacity limitations to the problem.
 Currently, the algorithms do work in a situation where every vector has its own required volume (and thus own capacity).
+Due to a merger with branch OTHER_NUMS the algorithms also work for any number of part types.
 
 The hub_spoke program implemets the hub-and-spoke method for solving the problem.
 
