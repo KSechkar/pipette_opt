@@ -3,6 +3,7 @@
 Latest change: 22 July 2020 - tsp method now supports limited pipette capacity; cost function fixed (was giving incorrect results)
 
 The branch CAPACITY introduced pipette capacity limitations to the problem.
+Currently, the algorithms do work in a situation where every vector has its own required volume (and thus own capacity).
 
 The hub_spoke program implemets the hub-and-spoke method for solving the problem.
 
@@ -23,7 +24,8 @@ The input_generator program contains fucntions that create random inputs used fo
 
 The auxil program contains auxiliary functions used by BOTH methods.
 Currently, it has a display function, pipette capacity calculator, as well as route/single operation cost functions of two different kinds.
-Only cost functions 'with_w' are used as the other kind is too slow - and only 'with_w' supports capacity limitations. To ignore capacity, give cap=None.
+There are also pipette capacity calculator functions. To ignore capacity, give caps=None.
+Only cost functions 'with_w' are used as the other kind is too slow - and only 'with_w' supports capacity limitations.
 
 ***
 Development purposes only

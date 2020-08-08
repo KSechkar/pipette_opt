@@ -9,14 +9,14 @@ import statistics as stats
 from tsp_method import tsp_method
 from statespace_methods import iddfs, greedy_tree
 from input_generator import wgenerator, inputlist
-from auxil import route_cost_with_w, capac, commoncapac
+from auxil import *
 
 
 # --------------------------------MAIN---------------------------------
 def main():
     MAXI = 97  # maximum number of wells we test+1
     MINI = 2  # maximum number of wells we test+1
-    READ = 100  # how many inputs we read form each file
+    READ = 50  # how many inputs we read form each file
 
     # make column labels
     columns = ['Number of wells']
@@ -60,6 +60,23 @@ def main():
             infile_read = csv.reader(infile)
             for j in range(0,READ):
                 w = nextw(infile_read)
+
+                # generate required volumes (for testing)
+                ss = []
+                w_to_subsets(w, ss)
+                reqvols = {}
+                for s in ss:
+                    if (s.reag[0] == 'p'):
+                        reqvols[s.reag] = 1.09
+                    elif (s.reag[0] == 'r'):
+                        reqvols[s.reag] = 0.33
+                    elif (s.reag[0] == 'c'):
+                        reqvols[s.reag] = 0.36
+                    else:
+                        reqvols[s.reag] = 0.75
+                # get capacitites
+                caps = capacities(reqvols, 10, 1.0)
+
                 for itr in range(0,len(means)):
                     fin = []
                     if(means[itr][0][0:3]=='TSP'):
@@ -83,7 +100,7 @@ def main():
                             greedy_tree(w, fin, 'optimistic+cap', reord,cap)
 
                     #get route cost and record
-                    rc=route_cost_with_w(fin,w,cap)
+                    rc=route_cost_with_w(fin,w,caps)
                     all_sols[itr].append(rc)
 
         #get means/medians/standard devioations and record
@@ -92,7 +109,7 @@ def main():
             medians[itr].append(str(stats.median(all_sols[itr])))
             stdevs[itr].append(str(stats.stdev(all_sols[itr])))
 
-        with open('progress/log.txt',mode="w+") as progress:
+        with open('progress/tsp_log.txt',mode="w+") as progress:
             progress.write('Case for '+str(i)+' wells processed - '+str(96-i)+' to go')
 
     #record results in output files

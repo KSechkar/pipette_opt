@@ -71,10 +71,10 @@ class Treenode:
 # Will be replaced by a test example generator or manual input reading function
 
 # this is the example given to me in the main pipette_opt file
-w1 = [['p1', 'r2', 'c4','t1','f15'],
-     ['p2', 'r2', 'c1','t1','f14'],
-     ['p1', 'r3', 'c2','t2','f14'],
-     ['p2', 'r3', 'c1', 't1', 'f14']]
+w = [['p1', 'r2', 'c4','t1'],
+     ['p2', 'r2', 'c1','t1'],
+     ['p1', 'r3', 'c2','t2'],
+     ['p2', 'r3', 'c1', 't1']]
 
 
 # -------------------------------MAIN-------------------------------
@@ -84,26 +84,39 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to dfine the number of wells
     change 4 last arguments to define the size of p, r, c and t reagent sets"""
-    # w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # determine how many vector doses a pipette can hold (capacity)
-    # for now, values selected manually in the order: pipette capacity, reagent volume, air gap volume
-    cap = capac(pipcap=10,dose=1.5,airgap=1.5)
+    # generate required volumes (for testing)
+    ss = []
+    w_to_subsets(w, ss)
+    reqvols = {}
+    for s in ss:
+        if (s.reag[0] == 'p'):
+            reqvols[s.reag] = 1.09
+        elif (s.reag[0] == 'r'):
+            reqvols[s.reag] = 0.33
+        elif (s.reag[0] == 'c'):
+            reqvols[s.reag] = 0.36
+        else:
+            reqvols[s.reag] = 0.75
+
+    # get capacitites
+    caps = capacities(reqvols, 10, 1.0)
 
     # use nearest-neighbour tree search to solve the problem
-    iddfs(w1, fin, 1,reord=None, cap=cap)
+    # iddfs(w, fin, 1,reord='sametogether', caps=caps)
 
     # use iddfs to solve the problem
-    # iddfs(w1, fin, 2, reord=None, cap=cap)
+    # iddfs(w1, fin, 2, reord=None, caps=caps)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    # greedy_tree(w1, fin, 'optimistic+cap', reord=None, cap=cap)
+    # greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
     
     # use monte-carlo tree search to solve the problem (WORKING REALLY BADLY)
     # montecarlo(w,fin,0.1,cap=cap)
@@ -113,12 +126,12 @@ def main():
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
 
-    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w1,cap)))
+    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w,caps)))
 
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
 # iddfs function
-def iddfs(w, fin, depth, reord,cap):
+def iddfs(w, fin, depth, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
@@ -126,10 +139,10 @@ def iddfs(w, fin, depth, reord,cap):
     address = addrfromw(w)
 
     # make w, address and capacity global for simplicity
-    global globw, globcap, globaddress
+    global globw, globcaps, globaddress
     globw = w
     globaddress = address
-    globcap = cap
+    globcaps = caps
 
     all_operations = len(w) * len(w[0])
 
@@ -175,7 +188,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], globw, added, globcap))
+        potcost.append(cost_func_with_w(fin, ops[i], globw, added, globcaps))
         # next iteration
         if (curdepth < depth and len(ops) != 1):
             # change the inputs for next iteration
@@ -247,7 +260,7 @@ def a_star_tree(w, fin, heur, reord):
 
 
 # ---------------------------SOLVER (GREEDY)-------------------
-def greedy_tree(w, fin, heur, reord,cap):
+def greedy_tree(w, fin, heur, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
@@ -255,9 +268,9 @@ def greedy_tree(w, fin, heur, reord,cap):
     address = addrfromw(w)
 
     # make w, address and capacity global for simplicity
-    global globw, globcap, globaddress
+    global globw, globcaps, globaddress
     globw = w
-    globcap = cap
+    globcaps = caps
 
     all_operations = len(w) * len(w[0])
 
@@ -279,7 +292,7 @@ def greedy_tree(w, fin, heur, reord,cap):
 def greedy_tree_onestep(ops, fin, w, added, heur):
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added, globcap))  # cost function
+        potcost.append(cost_func_with_w(fin, ops[i], w, added, globcaps))  # cost function
         fin.append(ops[i])
         ops.pop(i)
         potcost[-1] += h_tree(fin, ops, heur)  # heurstic
@@ -303,13 +316,13 @@ def h_tree(state, unstate, heur):
             if not ispresent:
                 already.append(unop.reag)
         return len(already)
-    elif (heur == 'optimistic+cap'):
+    elif (heur == 'optimistic+cap'): # also evaluate how many changes come simply from capacity
         subsets=[]
         ops_to_subsets(unstate,subsets)
         est_cost=0
         for subset in subsets:
             est_cost+=1
-            est_cost+=round(len(subset.wells)/globcap)
+            est_cost+=round(len(subset.wells)/globcaps[subset.reag])
         return est_cost
 
 """
