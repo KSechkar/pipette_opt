@@ -18,17 +18,17 @@ from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
-# Each reagent matched with a subest of wells it is added to
+# Each part matched with a subest of wells it is added to
 class Ss:
-    def __init__(self, reag, wellno):  # initialisation
-        self.reag = reag
+    def __init__(self, part, wellno):  # initialisation
+        self.part = part
         self.wells = [wellno]
 
     def nuwell(self, wellno):  # record new well in the subset
         self.wells.append(wellno)
 
-    def __str__(self):  # for printing the subset's reagent type and wells out
-        strRep = self.reag + '|'
+    def __str__(self):  # for printing the subset's part type and wells out
+        strRep = self.part + '|'
         for i in range(0, len(self.wells)):
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
@@ -36,12 +36,12 @@ class Ss:
 
 # Final output format is an array of Operations - will be the same for ALL methods
 class Oper:
-    def __init__(self, reag, well):
-        self.reag = reag
+    def __init__(self, part, well):
+        self.part = part
         self.well = well
 
-    def __str__(self):  # for printing the subset's reagent type and wells out
-        strRep = self.reag + ' -> w' + str(self.well)
+    def __str__(self):  # for printing the subset's part type and wells out
+        strRep = self.part + ' -> w' + str(self.well)
         return strRep
 
 
@@ -61,7 +61,7 @@ def main():
 
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
-    change 4 last arguments to define the size of p, r, c and t reagent sets"""
+    change 4 last arguments to define the size of p, r, c and t part sets"""
     w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing)
@@ -69,14 +69,14 @@ def main():
     w_to_subsets(w,ss)
     reqvols = {}
     for s in ss:
-        if(s.reag[0]=='p'):
-            reqvols[s.reag]=1.09
-        elif(s.reag[0]=='r'):
-            reqvols[s.reag]=0.33
-        elif (s.reag[0] == 'c'):
-            reqvols[s.reag] = 0.36
+        if(s.part[0]=='p'):
+            reqvols[s.part]=1.09
+        elif(s.part[0]=='r'):
+            reqvols[s.part]=0.33
+        elif (s.part[0] == 'c'):
+            reqvols[s.part] = 0.36
         else:
-            reqvols[s.reag] = 0.75
+            reqvols[s.part] = 0.75
 
     # get capacitites
     caps=capacities(reqvols,10,1.0)
@@ -85,7 +85,7 @@ def main():
     time1 = time.time()
 
     # the actual solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord=None, filename=None, caps=caps)
+    tsp_method(w, fin, reord='sametogether', filename=None, caps=caps)
 
     dispoper(fin)
 
@@ -138,7 +138,7 @@ def tsp_method(w, fin, reord, filename, caps):
 
     # implement the algorithm
     for i in range(0, len(subsets)):
-        singlesub(subsets[i], D, fin, caps[subsets[i].reag])
+        singlesub(subsets[i], D, fin, caps[subsets[i].part])
         # print(str(i+1) + ' of ' + str(len(subsets)) + ' subsets processed')
 
 
@@ -182,7 +182,7 @@ def singlesub(subset, D, fin, cap):
         # record in fin
         for chain in chains:
             for i in range(0,len(chain)):
-                fin.append(Oper(subset.reag, subset.wells[chain[i]-1]))
+                fin.append(Oper(subset.part, subset.wells[chain[i]-1]))
 
     else: # no adjustment for capacity
         if (len(subD) == 2):
@@ -191,7 +191,7 @@ def singlesub(subset, D, fin, cap):
             tour = tsp_lp_gurobi(subD)
         # record in fin
         for i in range(1,len(tour)):
-            fin.append(Oper(subset.reag, subset.wells[tour[i]-1]))
+            fin.append(Oper(subset.part, subset.wells[tour[i]-1]))
 
     # PART 5: return the adjusted number of pipette tip changes [IRRELEVANT WITH LP SOLVER => COMMENTED]
     #return tips

@@ -7,7 +7,7 @@ import csv
 import time
 
 
-# simple test input generator. Out of given numbers of reagents of each class, create random input mixtures
+# simple test input generator. Out of given numbers of parts of each class, create random input mixtures
 def wgenerator(howmany_inputs, howmany_p, howmany_r, howmany_c, howmany_t):
     # initialise w and onewell
     w = []

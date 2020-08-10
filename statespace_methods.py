@@ -15,12 +15,12 @@ from tsp_reorder import sametogether, leastout
 # -------------------------------CLASS DEFINITIONS-------------------------------
 # Final output format is an array of Operations - will be the same for ALL methods
 class Oper:
-    def __init__(self, reag, well):
-        self.reag = reag
+    def __init__(self, part, well):
+        self.part = part
         self.well = well
 
-    def __str__(self):  # for printing the subset's reagent type and wells out
-        strRep = self.reag + ' -> w' + str(self.well)
+    def __str__(self):  # for printing the subset's partent type and wells out
+        strRep = self.part + ' -> w' + str(self.well)
         return strRep
 
 
@@ -83,7 +83,7 @@ def main():
 
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to dfine the number of wells
-    change 4 last arguments to define the size of p, r, c and t reagent sets"""
+    change 4 last arguments to define the size of p, r, c and t partent sets"""
     w = wgenerator(96, 6, 6, 3, 4)
 
     # PERFORMACE EVALUATION: start the timer
@@ -94,20 +94,20 @@ def main():
     w_to_subsets(w, ss)
     reqvols = {}
     for s in ss:
-        if (s.reag[0] == 'p'):
-            reqvols[s.reag] = 1.09
-        elif (s.reag[0] == 'r'):
-            reqvols[s.reag] = 0.33
-        elif (s.reag[0] == 'c'):
-            reqvols[s.reag] = 0.36
+        if (s.part[0] == 'p'):
+            reqvols[s.part] = 1.09
+        elif (s.part[0] == 'r'):
+            reqvols[s.part] = 0.33
+        elif (s.part[0] == 'c'):
+            reqvols[s.part] = 0.36
         else:
-            reqvols[s.reag] = 0.75
+            reqvols[s.part] = 0.75
 
     # get capacitites
     caps = capacities(reqvols, 10, 1.0)
 
     # use nearest-neighbour tree search to solve the problem
-    # iddfs(w, fin, 1,reord='sametogether', caps=caps)
+    iddfs(w, fin, 1,reord='sametogether', caps=caps)
 
     # use iddfs to solve the problem
     # iddfs(w1, fin, 2, reord=None, caps=caps)
@@ -135,7 +135,7 @@ def iddfs(w, fin, depth, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # get addresses of reagent types in w
+    # get addresses of partent types in w
     address = addrfromw(w)
 
     # make w, address and capacity global for simplicity
@@ -150,13 +150,13 @@ def iddfs(w, fin, depth, reord,caps):
     ops.pop(0)
 
     # if (with_w):
-    added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-    added[fin[0].well][address[fin[0].reag[0]]] = 1
+    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
+    added[fin[0].well][address[fin[0].part[0]]] = 1
 
     while (len(fin) < all_operations):
         # if (with_w):
         nextop = iddfs_oneiter_with_w(ops, fin, 1, depth,added)
-        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
+        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
         # else:
             # nextop = iddfs_oneiter(ops, fin, 1, depth)
         fin.append(ops[nextop])
@@ -192,7 +192,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
         # next iteration
         if (curdepth < depth and len(ops) != 1):
             # change the inputs for next iteration
-            added[ops[i].well][globaddress[ops[i].reag[0]]] = 1
+            added[ops[i].well][globaddress[ops[i].part[0]]] = 1
             fin.append(ops[i])
             ops.pop(i)
 
@@ -202,7 +202,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
             # change the inputs back
             ops.insert(i, fin[len(fin) - 1])
             fin.pop()
-            added[ops[i].well][globaddress[ops[i].reag[0]]] = 0
+            added[ops[i].well][globaddress[ops[i].part[0]]] = 0
 
     # act according to the determined costs
     if (curdepth == 1):
@@ -225,7 +225,7 @@ def a_star_tree(w, fin, heur, reord):
 
     # starting position - state with no operations performed
     states = [[]]  # list of states in state-space under consideration
-    unstates = [ops]  # list of reagents NOT added for a given state
+    unstates = [ops]  # list of parts NOT added for a given state
     g = [0]  # distance from origin, mirrors states
     f = [h_tree([], ops, heur)]  # f(states[i])=g(states[i])+h(states[i]), mirrors states
     l = [0]
@@ -264,7 +264,7 @@ def greedy_tree(w, fin, heur, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # get addresses of reagent types in w
+    # get addresses of part types in w
     address = addrfromw(w)
 
     # make w, address and capacity global for simplicity
@@ -277,13 +277,13 @@ def greedy_tree(w, fin, heur, reord,caps):
     fin.append(ops[0])
     ops.pop(0)
 
-    added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-    added[fin[0].well][address[fin[0].reag[0]]] = 1
+    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
+    added[fin[0].well][address[fin[0].part[0]]] = 1
 
     while (len(fin) < all_operations):
         #print(len(fin))
         nextop = greedy_tree_onestep(ops, fin, w, added, heur)
-        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
+        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
 
         fin.append(ops[nextop])
         ops.pop(nextop)
@@ -310,11 +310,11 @@ def h_tree(state, unstate, heur):
         for unop in unstate:
             ispresent = False
             for alread in already:
-                if (unop.reag == alread):
+                if (unop.part == alread):
                     ispresent = True
                     break
             if not ispresent:
-                already.append(unop.reag)
+                already.append(unop.part)
         return len(already)
     elif (heur == 'optimistic+cap'): # also evaluate how many changes come simply from capacity
         subsets=[]
@@ -322,7 +322,7 @@ def h_tree(state, unstate, heur):
         est_cost=0
         for subset in subsets:
             est_cost+=1
-            est_cost+=round(len(subset.wells)/globcaps[subset.reag])
+            est_cost+=round(len(subset.wells)/globcaps[subset.part])
         return est_cost
 
 """
@@ -408,13 +408,13 @@ def getops(w, ops, reord):
     # as iddfs and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
     if (reord == None):
         for well in range(0, len(w)):
-            for reagent in range(0, len(w[well])):
-                ops.append(Oper(w[well][reagent], well))
+            for part in range(0, len(w[well])):
+                ops.append(Oper(w[well][part], well))
         return
     elif (reord == 'random'):
         for well in range(0, len(w)):
-            for reagent in range(0, len(w[well])):
-                ops.append(Oper(w[well][reagent], well))
+            for part in range(0, len(w[well])):
+                ops.append(Oper(w[well][part], well))
         np.random.shuffle(ops)
         return
     if (reord == 'leastout' or reord == 'sametogether' or reord == 'justsubsets'):

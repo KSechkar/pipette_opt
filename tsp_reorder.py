@@ -13,22 +13,22 @@ from tspy.solvers import TwoOpt_solver
 # ------------------CLASS DEFINITIONS---------------
 # needed for the sametogether reordering
 class Sametogether:
-    def __init__(self, reagtype):
-        self.reagtype = reagtype
+    def __init__(self, parttype):
+        self.parttype = parttype
         self.subs = []
         self.outgoing = 0
 
 
 class Ss:
-    def __init__(self, reag, wellno):  # initialisation
-        self.reag = reag
+    def __init__(self, part, wellno):  # initialisation
+        self.part = part
         self.wells = [wellno]
 
     def nuwell(self, wellno):  # record new well in the subset
         self.wells.append(wellno)
 
-    def __str__(self):  # for printing the subset's reagent type and wells out
-        strRep = self.reag + '|'
+    def __str__(self):  # for printing the subset's part type and wells out
+        strRep = self.part + '|'
         for i in range(0, len(self.wells)):
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
@@ -36,12 +36,12 @@ class Ss:
 
 # Final output format is an array of Operations - will be the same for ALL methods
 class Oper:
-    def __init__(self, reag, well):
-        self.reag = reag
+    def __init__(self, part, well):
+        self.part = part
         self.well = well
 
-    def __str__(self):  # for printing the subset's reagent type and wells out
-        strRep = self.reag + ' -> w' + str(self.well)
+    def __str__(self):  # for printing the subset's part type and wells out
+        strRep = self.part + ' -> w' + str(self.well)
         return strRep
 
 
@@ -75,7 +75,7 @@ def sametogether(subsets, w):
     else:
         totaltypes=0
 
-    # intialise the lists of same-type reagent subsets
+    # intialise the lists of same-type part subsets
     together=[]
     for i in range(0,totaltypes):
         together.append(Sametogether(w[0][i][0]))
@@ -84,7 +84,7 @@ def sametogether(subsets, w):
     for i in range(0, len(subsets)):
         # find into which list we put it
         for position in range(0, totaltypes):
-            if (subsets[i].reag[0] == together[position].reagtype):
+            if (subsets[i].part[0] == together[position].parttype):
                 break
 
         together[position].subs.append(subsets[i])  # record the subset in the proper array
@@ -131,7 +131,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
-        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].part]))
         # next iteration
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
@@ -182,7 +182,7 @@ def reorder_greedy_onestep(origsubs, subsets, D, heur,caps):
     potcost = []
     for i in range(0, len(origsubs)):
         # cost function component
-        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].part]))
 
         # heuristic component
         subsets.append(origsubs[i])
@@ -204,7 +204,7 @@ def reorder_a_star(origsubs, subsets, D, heur):
 
     # starting position - state with no operations performed
     states = [[]]  # list of states in state-space under consideration
-    unstates = [origsubs]  # list of reagents NOT added for a given state
+    unstates = [origsubs]  # list of parts NOT added for a given state
     g = [0]  # distance from origin, mirrors states
     h = [0]  # heuristic function values
     f = [0]  # f(states[i])=g(states[i])+h(states[i]), mirrors states
