@@ -1,6 +1,6 @@
 # AUXIL.PY
 # Auxiliary functions (e.g. route cost calculator, operation printer, json file reader) used by both TSP- and State Space-based methods
-# v0.1.1, 22.7.2020
+# v0.1.2, 10.8.2020
 
 import numpy as np
 import json
