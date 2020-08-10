@@ -243,9 +243,13 @@ def jsonreader(filename, w, subsets,ignorelist):
         parts = construct[1]['parts']
         for part in parts.keys():
             # skip an ignored part type
+            ig = False
             for ignore in ignorelist:
                 if(part==ignore):
-                    continue
+                    ig=True
+                    break
+            if(ig):
+                continue
 
             #  if this is the first entry, fill
             if(wellno==0):
