@@ -1,8 +1,10 @@
 # PRE-TSP METHOD REORDERINGS
 # By Kirill Sechkar
-# v0.0.3, 10.7.20
+# v0.1.0.lp, 15.7.20
 
 import numpy as np
+from tsp_lp_solver import lp_cap
+
 from tspy import TSP
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
@@ -54,7 +56,9 @@ def main():
 
 # -------------SIMPLE REORDERINGS----------------
 # totalwells is the total number of wells in the input
-def leastout(subsets, totalwells):
+def leastout(subsets, w):
+    # get length of w
+    totalwells=len(w)
     # determine the number of outgoing edges for each subset
     for i in range(0, len(subsets)):
         subsets[i].outgoing = len(subsets[i].wells) * (totalwells - len(subsets[i].wells))
@@ -63,14 +67,23 @@ def leastout(subsets, totalwells):
     subsets.sort(key=lambda subsets: subsets.outgoing)
 
 
-def sametogether(subsets, totalwells):
-    # intialise the 4 lists of same-type reagent subsets
-    together = [Sametogether('p'), Sametogether('r'), Sametogether('c'), Sametogether('t')]
+def sametogether(subsets, w):
+    # get dimensions of w
+    totalwells = len(w)
+    if(totalwells!=0):
+        totaltypes = len(w[0])
+    else:
+        totaltypes=0
+
+    # intialise the lists of same-type reagent subsets
+    together=[]
+    for i in range(0,totaltypes):
+        together.append(Sametogether(w[0][i][0]))
 
     # distribute the subsets among the lists, calculate the total number of outgoing edges for each list
     for i in range(0, len(subsets)):
-        # find into which of 4 list we put it
-        for position in range(0, 4):
+        # find into which list we put it
+        for position in range(0, totaltypes):
             if (subsets[i].reag[0] == together[position].reagtype):
                 break
 
@@ -78,12 +91,12 @@ def sametogether(subsets, totalwells):
         together[position].outgoing += len(subsets[i].wells) * (totalwells - len(
             subsets[i].wells))  # update number of outgoing edges (for further OPTIONAL sorting)
 
-    # sort the 4 lists by the number of outgoing edges (OPTIONAL)
+    # sort the lists by the number of outgoing edges (OPTIONAL)
     together.sort(key=lambda together: together.outgoing)
 
     # record the rearranged subsets
-    inlist = 0  # counter within one of the 4 lists
-    whichlist = 0  # which of the 4 lists is current
+    inlist = 0  # counter within one of the lists
+    whichlist = 0  # which of the lists is current
     for i in range(0, len(subsets)):
         subsets[i] = together[whichlist].subs[inlist]
         inlist += 1
@@ -94,9 +107,10 @@ def sametogether(subsets, totalwells):
 
 # -------------STATE-SPACE REORDERINGS----------------
 # iddfs
-def reorder_iddfs(origsubs, subsets, D, depth):
-    # if we want to randomise the order first
-    # np.random.shuffle(origsubs)
+def reorder_iddfs(origsubs, subsets, D, depth,caps):
+    # set maximum optimisation time for more than default, so that tree search is faster
+    global maxtime
+    maxtime=0.1
 
     all_operations = len(origsubs)
 
@@ -105,19 +119,19 @@ def reorder_iddfs(origsubs, subsets, D, depth):
     Dupdate(D, subsets[-1])
 
     while (len(subsets) < all_operations):
-        #print(len(subsets))
+        # print(len(subsets))
 
-        nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth)
+        nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth,caps)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
         Dupdate(D, subsets[-1])
 
 
-def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
+def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
-        potcost.append(solveforcost(origsubs[i], D))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
         # next iteration
         werenew = Dupdate(D, origsubs[i])
         if (curdepth < depth and len(origsubs) != 1):
@@ -126,7 +140,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
             origsubs.pop(i)
 
             # call next iteration
-            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth)
+            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
 
             # change the inputs back
             origsubs.insert(i, subsets[-1])
@@ -143,9 +157,10 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth):
 
 
 # greedy algorithm
-def reorder_greedy(origsubs, subsets, D, heur):
-    # if we want to randomise the order first
-    # np.random.shuffle(origsubs)
+def reorder_greedy(origsubs, subsets, D, heur, caps):
+    # set maximum optimisation time for more than default, so that tree search is faster
+    global maxtime
+    maxtime = 0.1
 
     all_operations = len(origsubs)
 
@@ -156,18 +171,18 @@ def reorder_greedy(origsubs, subsets, D, heur):
     while (len(subsets) < all_operations):
         #print(len(subsets))
 
-        nextop = reorder_greedy_onestep(origsubs, subsets, D, heur)
+        nextop = reorder_greedy_onestep(origsubs, subsets, D, heur,caps)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
         Dupdate(D, subsets[-1])
 
 
-def reorder_greedy_onestep(origsubs, subsets, D, heur):
+def reorder_greedy_onestep(origsubs, subsets, D, heur,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
         # cost function component
-        potcost.append(solveforcost(origsubs[i], D))
+        potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].reag]))
 
         # heuristic component
         subsets.append(origsubs[i])
@@ -179,7 +194,7 @@ def reorder_greedy_onestep(origsubs, subsets, D, heur):
 
     return potcost.index(min(potcost))
 
-
+"""
 # a star
 def reorder_a_star(origsubs, subsets, D, heur):
     alloperations = len(origsubs)
@@ -214,7 +229,7 @@ def reorder_a_star(origsubs, subsets, D, heur):
             states.append(states[consider] + [unstates[consider][i]])
             d.append(D.copy())
             unstates.append(unstates[consider][0:i] + unstates[consider][i + 1:len(unstates[consider])])
-            g.append(g[consider] + solveforcost(unstates[consider][i], d[-1]))
+            g.append(g[consider] + solveforcost(unstates[consider][i], d[-1],cap))
             h.append(h_tree(states[-1], unstates[-1], d[-1], heur))
             f.append(g[-1] + h[-1])
             Dupdate(d[-1], states[-1][-1])
@@ -227,7 +242,7 @@ def reorder_a_star(origsubs, subsets, D, heur):
         f.pop(consider)
         d.pop(consider)
         l.pop(consider)  # TEST ONLY
-
+"""
 
 def h_tree(complete, todo, D, heur):
     wt = 1  # weighing factor on the whole heuristic
@@ -276,7 +291,7 @@ def Drollback(D, werenew):
 
 
 # obtain a solution for given subset to determine its cost for sure
-def solveforcost(subset, D):
+def solveforcost(subset, D, cap):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -294,15 +309,22 @@ def solveforcost(subset, D):
                 if (current_well < sublen - 1):
                     current_well += 1
 
-    # PART 3: solve TSP for the subset
+    # PART 3: solve TSP for the subset and record costs
     tsp = TSP()
     tsp.read_mat(subD)
 
-    two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
-    tour = tsp.get_approx_solution(two_opt)
+    # solve with tspy if capacity is not aacounted for
+    if(cap==None):
+        two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+        tour = tsp.get_approx_solution(two_opt)
+        cost = get_cost(tour, tsp)
+    else:
+        chains = lp_cap(subD,cap,maxtime)
+        cost = 0
+        for chain in chains:
+            cost += get_cost(chain,tsp)
 
-    # PART 4: return the tour  cost
-    return get_cost(tour, tsp)
+    return cost  # include the tour cost in the number of tip changes
 
 
 # -------------------------------MAIN CALL-------------------------------

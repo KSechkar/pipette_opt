@@ -1,12 +1,10 @@
 # AUXIL.PY
 # Auxiliary functions (e.g. route cost calculator, operation printer, json file reader) used by both TSP- and State Space-based methods
-# v0.1.0, 10.7.2020
+# v0.1.2, 10.8.2020
 
 import numpy as np
 import json
-
-#match reagents with their addresses in w
-ADDRESS={'p': 0, 'r': 1, 'c': 2, 't': 3}
+import csv
 
 # -----------------------class definitions-----------------------------
 #operations
@@ -34,10 +32,29 @@ class Ss:
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
 
+
 # -----------------------RESULTS PRINTING-----------------------------
 def dispoper(fin):
     for i in range(0, len(fin)):
         print(fin[i])
+
+
+# -----------------------CAPACITY CALCULATOR-----------------------------
+# need to clairfy if the last collection has an air gap after it
+# currently assumed that NO
+def capac(pipcap, dose, airgap):
+    doseandgap = dose + airgap
+    cap = int(pipcap / doseandgap)  # get how many collections followed by gap will fit
+    if (dose <= (pipcap - cap * doseandgap)):  # see if a final collection without air gap would also fit
+        cap += 1
+    return cap
+
+# determine how many doses of each part a pipette can hold (i.e. find capacities)
+def capacities(reqvols, pipcap, airgap):
+    cap={}
+    for reqvol in reqvols.keys():
+        cap[reqvol]=capac(pipcap,reqvols[reqvol],airgap)
+    return cap
 
 
 # ---------------------------COST FUNCTIONS------------------------------------
@@ -82,34 +99,55 @@ def cost_func(fin, op):
 
 
 # alterative way to determine operation cost by also knowing the the input well array
-def route_cost_with_w(fin,w):
+def route_cost_with_w(fin,w,caps):
     added = np.zeros((len(w), len(w[0]))) #tells which reagents were added to which well
+
+    # get addresses of reagent types in w
+    address = addrfromw(w)
 
     #for the first operation in fin
     cost=1
-    added[fin[0].well][ADDRESS[fin[0].reag[0]]]=1
+    added[fin[0].well][address[fin[0].reag[0]]]=1
     for i in range(1, len(fin)):
-        cost+=cost_func_with_w(fin[0:i],fin[i],w,added)
-        added[fin[i].well][ADDRESS[fin[i].reag[0]]] = 1
+        cost += cost_func_with_w(fin[0:i], fin[i], w, added,caps)
+        added[fin[i].well][address[fin[i].reag[0]]] = 1
     return cost
 
-def cost_func_with_w(fin,op,w,added):
+
+def cost_func_with_w(fin,op,w,added,caps):
     # find the index of last for easier further referencing
     lastindex = len(fin) - 1
     if(lastindex<0): #if no previous operations have been performed, we obviously need to put on a tip
         return 1
 
-    # find the number of the last well where a reagent was added
+    # find the num ber of the last well where a reagent was added
     lastwell = fin[lastindex].well
 
     if(fin[lastindex].reag!=op.reag):
         cost=1
     else:
-        #check  on all 3 remaining
+        # check on all 3 remaining reagent types
         cost=0
         for i in range(0,len(w[0])):
             if(w[lastwell][i]!=fin[lastindex].reag):
                 if not (added[lastwell][i]==0 or (w[lastwell][i]==w[op.well][i] and added[op.well][i]==1)):
+                    cost=1
+
+        # take into account pipette capacity
+        if(caps!=None):
+            #only need to do that if cost is ostensibly 0 and the number of operations is less than the capacity
+            if((cost==0) and (len(fin)>=caps[op.reag])):
+                # check if the next dose of vector doesn't fit into the pipette due to capacity limitations
+                # to do that, see how many doses of current reagent have been delivered
+                backforcap = 0
+                while (backforcap<len(fin)):
+                    backforcap += 1
+                    if(fin[-backforcap].reag!=op.reag):
+                        backforcap -= 1
+                        break
+
+                # if capacity of the current pipette tip with this reagent is exceeded, will have to change tip
+                if(backforcap%caps[op.reag]==0):
                     cost=1
 
     return cost
@@ -128,7 +166,7 @@ Conversion between these data types is often necessary
 #read subsets from w
 def w_to_subsets(w,subsets):
     for i in range(0, len(w)):
-        for j in range(0, 4):
+        for j in range(0, len(w[0])):
             match = False
             for k in range(0, len(subsets)):
                 if (subsets[k].reag == w[i][j]):
@@ -165,20 +203,35 @@ def subsets_to_ops(subsets,ops):
         for j in range(0, len(subsets[i].wells)):
             ops.append(Oper(subsets[i].reag, subsets[i].wells[j]))
 
+def ops_to_subsets(ops, subsets):
+    for op in ops:
+        ispresent = False
+        for subset in subsets:
+            if (op.reag == subset.reag):
+                subset.nuwell(op.well)
+                ispresent = True
+                break
+        if not ispresent:
+            subsets.append(Ss(op.reag,op.well))
+
 
 # -------------------------------JSON READER-------------------------------
 # pass an empty w or subsets if you want them filled; pass None if not
-def jsonreader(filename, w, subsets):
+# ignorelist contains names of reagent types to be ignored (like backbone)
+def jsonreader(filename, w, subsets,ignorelist):
     # load file for reading
     jsonfile = open(filename, "r")
     input = json.load(jsonfile)
 
     ss = []  # initialise subsets
     dic = {'constructs': {}, 'reagents': {}}  # preset the dictionary
-    reagclass = {'promoter': 'p', 'rbs': 'r', 'cds': 'c',
-                 'terminator': 't'}  # preset indices of reagents to be recorded in the subsets list
-    reagnum = {'p': 0, 'r': 0, 'c': 0, 't': 0}  # preset the number of reagents of a given class
+    reagclass = {}  # preset indices of reagents to be recorded in the subsets list
+    address = {} # addresses of reagent types in w
+    reagnum = {} # current number of each reagent type different species
     wellno = 0  # preset well counter
+    sid='abcdefghijklmnopqrstuvwxyz' # one-letter ids standing in for reagent types
+    i_sid = 0 # auxiliary
+    i_addr=0
 
     # read the input
     for construct in input.items():
@@ -187,9 +240,20 @@ def jsonreader(filename, w, subsets):
 
         # get reagents
         parts = construct[1]['parts']
-        for part in parts:
-            if (part == 'backbone'):  # backbone does not count!
-                continue
+        for part in parts.keys():
+            # skip an ignored reagent type
+            for ignore in ignorelist:
+                if(part==ignore):
+                    continue
+
+            #  if this is the first entry, fill
+            if(wellno==0):
+                reagclass[part]=sid[i_sid]
+                reagnum[sid[i_sid]]=0
+                address[sid[i_sid]]=i_addr
+                i_sid+=1
+                i_addr+=1
+
             # determine reagent name
             reagname = parts[part]['name']
 
@@ -210,13 +274,28 @@ def jsonreader(filename, w, subsets):
                 ss.append(Ss(nuentry, wellno))
                 reagnum[reagclass[part]] += 1  # update number of reagents of this class
 
-        wellno += 1
-
+        wellno += 1 # proceeding to next well
     if (subsets != None):  # record subsets
         subsets = ss
     if (w != None):  # record the well array
         subsets_to_w(ss, w)
 
     # return dictionary that allows to decode the input information from the outputs
-    return dic
+    return dic, address
 
+def inalist(key,list):
+    match = False
+    for k in list:
+        if(k==key):
+            match = True
+    return match
+
+def addrfromw(w):
+    address = {}
+    if(len(w)!=0):
+        if(len(w[0])!=0):
+            for i in range(0,len(w[0])):
+                address[w[0][i][0]] = i # assign the address to the first letter code
+    return address
+
+jsonreader('level_zero_constructs.json',w=None,subsets=[],ignorelist=['backbone'])

@@ -1,17 +1,15 @@
 # STATE SPACE-BASED METHODS (SHORTEST PATH/TREE SEARCH) OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.0.5, 10.7.20
+# v0.1.0, 22.7.20
 
 import numpy as np
 import time
+from math import sqrt
 
 # import functions from own files
 from input_generator import wgenerator
-from auxil import cost_func, dispoper, cost_func_with_w, route_cost_with_w, w_to_subsets, subsets_to_ops
-from tsp_reorder import sametogether
-
-# match reagents with their addresses in w
-ADDRESS = {'p': 0, 'r': 1, 'c': 2, 't': 3}
+from auxil import *
+from tsp_reorder import sametogether, leastout
 
 
 # -------------------------------CLASS DEFINITIONS-------------------------------
@@ -39,14 +37,43 @@ class State:
         strRep = 'Last performed: ' + str(self.last) + '\n' + str(self.added)
         return strRep
 
+# needed for Monte-Carlo
+class Treenode:
+    def __init__(self, parent, whichun, prevstate, prevunstate):
+        self.state = prevstate.copy()+[prevunstate[whichun]] # get all operations performed to this point
+        self.unstate=prevunstate.copy()
+        self.unstate.pop(whichun)
+
+        self.parent=parent # parent on tree
+        self.kids=[] # children on tree
+        self.visits=0 # number of visits carried out
+        self.value=0 # the value
+
+    # add a child on tree
+    def addkid(self,kid):
+        self.kids.append(kid)
+
+    # delete the tree node and the branches attached to it
+    def allclear(self):
+        for kid in self.kids:
+            kid.allclear()
+        del self
+
+    # get new average value from input and increase number of visits
+    def update_valvis(self,value):
+        if(self.visits==0):
+            self.value=value
+        else:
+            self.value = (self.value/self.visits + value)/(self.visits + 1)
+        self.visits += 1
 
 # -------------------------------INPUT-------------------------------
 # Will be replaced by a test example generator or manual input reading function
 
 # this is the example given to me in the main pipette_opt file
-w = [['p1', 'r2', 'c4', 't2'],
-     ['p2', 'r2', 'c1', 't2'],
-     ['p1', 'r3', 'c2', 't1'],
+w = [['p1', 'r2', 'c4','t1'],
+     ['p2', 'r2', 'c1','t1'],
+     ['p1', 'r3', 'c2','t2'],
      ['p2', 'r3', 'c1', 't1']]
 
 
@@ -62,56 +89,81 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
+    # generate required volumes (for testing)
+    ss = []
+    w_to_subsets(w, ss)
+    reqvols = {}
+    for s in ss:
+        if (s.reag[0] == 'p'):
+            reqvols[s.reag] = 1.09
+        elif (s.reag[0] == 'r'):
+            reqvols[s.reag] = 0.33
+        elif (s.reag[0] == 'c'):
+            reqvols[s.reag] = 0.36
+        else:
+            reqvols[s.reag] = 0.75
+
+    # get capacitites
+    caps = capacities(reqvols, 10, 1.0)
+
     # use nearest-neighbour tree search to solve the problem
-    # iddfs(w, fin, 1, True,'sametogether')
+    # iddfs(w, fin, 1,reord='sametogether', caps=caps)
 
     # use iddfs to solve the problem
-    iddfs(w, fin, 2, True,'sametogether')
+    # iddfs(w1, fin, 2, reord=None, caps=caps)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
 
     # use greedy algorithm on a tree to solve the problem
-    #greedy_tree(w, fin, 'optimistic', 'justsubsets')
+    # greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
+    
+    # use monte-carlo tree search to solve the problem (WORKING REALLY BADLY)
+    # montecarlo(w,fin,0.1,cap=cap)
 
     dispoper(fin)
 
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
 
-    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w)))
+    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w,caps)))
 
 
 # -------------------------------SOLVERS (IDDFS)-------------------------------
 # iddfs function
-def iddfs(w, fin, depth, with_w, reord):
+def iddfs(w, fin, depth, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # if we want to randomise the operation order
-    # np.random.shuffle(ops)
+    # get addresses of reagent types in w
+    address = addrfromw(w)
+
+    # make w, address and capacity global for simplicity
+    global globw, globcaps, globaddress
+    globw = w
+    globaddress = address
+    globcaps = caps
 
     all_operations = len(w) * len(w[0])
 
     fin.append(ops[0])
     ops.pop(0)
 
-    if (with_w):
-        added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-        added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+    # if (with_w):
+    added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
+    added[fin[0].well][address[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
-        #print(len(fin))
-        if (with_w):
-            nextop = iddfs_oneiter_with_w(ops, fin, 1, depth, w, added)
-            added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
-        else:
-            nextop = iddfs_oneiter(ops, fin, 1, depth)
-
+        # if (with_w):
+        nextop = iddfs_oneiter_with_w(ops, fin, 1, depth,added)
+        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
+        # else:
+            # nextop = iddfs_oneiter(ops, fin, 1, depth)
         fin.append(ops[nextop])
         ops.pop(nextop)
 
 
+"""
 # single iteration of iddfs
 def iddfs_oneiter(ops, fin, curdepth, depth):
     # determine the potential cost of each possible operation
@@ -128,28 +180,29 @@ def iddfs_oneiter(ops, fin, curdepth, depth):
     else:
         answer = min(potcost)
     return answer
+"""
 
 
 # single iteration of iddfs (with w)
-def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
+def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added))
+        potcost.append(cost_func_with_w(fin, ops[i], globw, added, globcaps))
         # next iteration
         if (curdepth < depth and len(ops) != 1):
             # change the inputs for next iteration
-            added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 1
+            added[ops[i].well][globaddress[ops[i].reag[0]]] = 1
             fin.append(ops[i])
             ops.pop(i)
 
             # call next iteration
-            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, w, added)
+            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, added)
 
             # change the inputs back
             ops.insert(i, fin[len(fin) - 1])
             fin.pop()
-            added[ops[i].well][ADDRESS[ops[i].reag[0]]] = 0
+            added[ops[i].well][globaddress[ops[i].reag[0]]] = 0
 
     # act according to the determined costs
     if (curdepth == 1):
@@ -159,7 +212,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth, w, added):
 
     return answer
 
-
+"""
 # -------------------------------SOLVER (A*)-------------------------------
 # A* solver - on a tree
 def a_star_tree(w, fin, heur, reord):
@@ -203,15 +256,21 @@ def a_star_tree(w, fin, heur, reord):
         g.pop(consider)
         f.pop(consider)
         l.pop(consider)  # TEST ONLY
+"""
 
 
 # ---------------------------SOLVER (GREEDY)-------------------
-def greedy_tree(w, fin, heur, reord):
+def greedy_tree(w, fin, heur, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
-    # if we want to randomise the operation order
-    # np.random.shuffle(ops)
+    # get addresses of reagent types in w
+    address = addrfromw(w)
+
+    # make w, address and capacity global for simplicity
+    global globw, globcaps, globaddress
+    globw = w
+    globcaps = caps
 
     all_operations = len(w) * len(w[0])
 
@@ -219,12 +278,12 @@ def greedy_tree(w, fin, heur, reord):
     ops.pop(0)
 
     added = np.zeros((len(w), len(w[0])))  # tells which reagents were added to which well
-    added[fin[0].well][ADDRESS[fin[0].reag[0]]] = 1
+    added[fin[0].well][address[fin[0].reag[0]]] = 1
 
     while (len(fin) < all_operations):
         #print(len(fin))
         nextop = greedy_tree_onestep(ops, fin, w, added, heur)
-        added[ops[nextop].well][ADDRESS[ops[nextop].reag[0]]] = 1
+        added[ops[nextop].well][address[ops[nextop].reag[0]]] = 1
 
         fin.append(ops[nextop])
         ops.pop(nextop)
@@ -233,7 +292,7 @@ def greedy_tree(w, fin, heur, reord):
 def greedy_tree_onestep(ops, fin, w, added, heur):
     potcost = []
     for i in range(0, len(ops)):
-        potcost.append(cost_func_with_w(fin, ops[i], w, added))  # cost function
+        potcost.append(cost_func_with_w(fin, ops[i], w, added, globcaps))  # cost function
         fin.append(ops[i])
         ops.pop(i)
         potcost[-1] += h_tree(fin, ops, heur)  # heurstic
@@ -257,9 +316,91 @@ def h_tree(state, unstate, heur):
             if not ispresent:
                 already.append(unop.reag)
         return len(already)
+    elif (heur == 'optimistic+cap'): # also evaluate how many changes come simply from capacity
+        subsets=[]
+        ops_to_subsets(unstate,subsets)
+        est_cost=0
+        for subset in subsets:
+            est_cost+=1
+            est_cost+=round(len(subset.wells)/globcaps[subset.reag])
+        return est_cost
 
-    return 0
+"""
+# -------------------------------MONTE-CARLO-------------------------------
+def montecarlo(w, fin, simtime, cap):
+    ops = []  # an Oper list of operations to be performed
+    getops(w, ops, reord=None)
+    root=Treenode(0,0,[],ops)
+    global montew
+    montew = w
 
+    while (len(root.unstate)!=0):
+        # for i in range(0,sims):
+        starttime=time.time()
+        while ((time.time() - starttime) < simtime):
+            print(str(len(root.unstate))+' ops left; sim time '+ str(time.time()-starttime)) # TEST ONLY
+            bleaf=bestleaf(root) # find currently best leaf
+
+            # make children for the leaf
+            for j in range(0,len(bleaf.unstate)):
+                bleaf.addkid(Treenode(bleaf,j,bleaf.state,bleaf.unstate))
+
+            # find the random-simulation value
+            if(len(bleaf.kids)!=0):
+                value = randsim(bleaf.kids[np.random.randint(0,len(bleaf.kids))],cap)
+            else: # no need for random simulation if leaf is the end-state
+                value = len(bleaf.state) - route_cost_with_w(bleaf.state, montew, cap)
+
+            # back-propagate
+            backpropagate(bleaf,value)
+
+        # go for next iteration
+        root=root.kids[clearkids(root.kids)] # pick the best kid, clear all non-best kids
+
+    fin+=root.state
+
+
+def bestleaf(root):
+    if (len(root.kids) != 0):
+        best = 0
+        bestucb = ucb(root.kids[0])
+        for i in range(1, len(root.kids)):
+            iucb = ucb(root.kids[i])
+            if (iucb > bestucb):
+                best = i
+                bestucb=iucb
+        return bestleaf(root.kids[best])
+    else:
+        return root
+
+
+def ucb(treenode):
+    # print(treenode.value) # TEST ONLY
+    if(treenode.visits==0):
+        return np.inf
+    else:
+        return treenode.value + 2 * sqrt(np.log(treenode.parent.visits) / treenode.visits)
+
+
+def randsim(curnode,cap):
+    if (len(curnode.unstate) != 0):
+        next = np.random.randint(0, len(curnode.unstate))
+        return randsim(Treenode(curnode, next, curnode.state, curnode.unstate),cap)
+    else:
+        return (len(curnode.state) - route_cost_with_w(curnode.state, montew,cap))
+
+def backpropagate(curnode,value):
+    curnode.update_valvis(value)
+    if(curnode.parent!=0):
+        backpropagate(curnode.parent,value)
+
+def clearkids(kids):
+    best=kids.index(max(kids,key=lambda kids: kids.visits))
+    for i in range(0,len(kids)):
+        if(i!=best):
+            kids[i].allclear()
+    return best # return where to go next
+"""
 
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w
@@ -276,11 +417,13 @@ def getops(w, ops, reord):
                 ops.append(Oper(w[well][reagent], well))
         np.random.shuffle(ops)
         return
-    if (reord == 'justsubsets' or reord == 'sametogether'):
+    if (reord == 'leastout' or reord == 'sametogether' or reord == 'justsubsets'):
         subsets = []
         w_to_subsets(w, subsets)
         if (reord == 'sametogether'):
-            sametogether(subsets, len(w))
+            sametogether(subsets, w)
+        else:
+            leastout(subsets,w)
         subsets_to_ops(subsets, ops)
 
 
