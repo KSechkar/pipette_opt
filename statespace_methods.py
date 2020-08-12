@@ -18,6 +18,7 @@ class Oper:
     def __init__(self, part, well):
         self.part = part
         self.well = well
+        self.changed = False
 
     def __str__(self):  # for printing the subset's partent type and wells out
         strRep = self.part + ' -> w' + str(self.well)
@@ -107,7 +108,7 @@ def main():
     caps = capacities(reqvols, 10, 1.0)
 
     # use nearest-neighbour tree search to solve the problem
-    iddfs(w, fin, 1,reord='sametogether', caps=caps)
+    iddfs(w, fin, 1, reord='sametogether', caps=caps)
 
     # use iddfs to solve the problem
     # iddfs(w1, fin, 2, reord=None, caps=caps)
@@ -147,6 +148,7 @@ def iddfs(w, fin, depth, reord,caps):
     all_operations = len(w) * len(w[0])
 
     fin.append(ops[0])
+    fin[0].changed = True
     ops.pop(0)
 
     # if (with_w):
@@ -154,12 +156,13 @@ def iddfs(w, fin, depth, reord,caps):
     added[fin[0].well][address[fin[0].part[0]]] = 1
 
     while (len(fin) < all_operations):
-        # if (with_w):
         nextop = iddfs_oneiter_with_w(ops, fin, 1, depth,added)
+        nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps)
+
         added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
-        # else:
-            # nextop = iddfs_oneiter(ops, fin, 1, depth)
         fin.append(ops[nextop])
+        if (nextcost == 1):
+            fin[-1].changed = True
         ops.pop(nextop)
 
 
@@ -194,13 +197,15 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
             # change the inputs for next iteration
             added[ops[i].well][globaddress[ops[i].part[0]]] = 1
             fin.append(ops[i])
+            fin[-1].changed=True
             ops.pop(i)
 
             # call next iteration
             potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, added)
 
             # change the inputs back
-            ops.insert(i, fin[len(fin) - 1])
+            ops.insert(i, fin[-1])
+            fin[-1].changed = False
             fin.pop()
             added[ops[i].well][globaddress[ops[i].part[0]]] = 0
 
@@ -275,6 +280,7 @@ def greedy_tree(w, fin, heur, reord,caps):
     all_operations = len(w) * len(w[0])
 
     fin.append(ops[0])
+    fin[0].changed=True
     ops.pop(0)
 
     added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
@@ -283,9 +289,12 @@ def greedy_tree(w, fin, heur, reord,caps):
     while (len(fin) < all_operations):
         #print(len(fin))
         nextop = greedy_tree_onestep(ops, fin, w, added, heur)
-        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
+        nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps)
 
+        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
         fin.append(ops[nextop])
+        if (nextcost == 1):
+            fin[-1].changed = True
         ops.pop(nextop)
 
 

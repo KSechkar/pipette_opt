@@ -12,6 +12,7 @@ class Oper:
     def __init__(self, part, well):
         self.part = part
         self.well = well
+        self.changed = False
 
     def __str__(self):  # for printing the subset's part type and wells out
         strRep = self.part + ' -> w' + str(self.well)
@@ -100,6 +101,10 @@ def cost_func(fin, op):
 
 # alterative way to determine operation cost by also knowing the the input well array
 def route_cost_with_w(fin,w,caps):
+    # reset the tip change indicators in case of previous corruption
+    for i in range(0, len(fin)):
+        fin[i].changed = False
+
     added = np.zeros((len(w), len(w[0]))) #tells which parts were added to which well
 
     # get addresses of part types in w
@@ -107,10 +112,19 @@ def route_cost_with_w(fin,w,caps):
 
     #for the first operation in fin
     cost=1
+    fin[0].changed = True
     added[fin[0].well][address[fin[0].part[0]]]=1
     for i in range(1, len(fin)):
-        cost += cost_func_with_w(fin[0:i], fin[i], w, added,caps)
+        one_cost = cost_func_with_w(fin[0:i], fin[i], w, added,caps)
+        cost += one_cost
+        if(one_cost==1):
+            fin[i].changed = True
         added[fin[i].well][address[fin[i].part[0]]] = 1
+
+    # reset the tip change indicators
+    for i in range(0,len(fin)):
+        fin[i].changed = False
+
     return cost
 
 
@@ -142,12 +156,11 @@ def cost_func_with_w(fin,op,w,added,caps):
                 backforcap = 0
                 while (backforcap<len(fin)):
                     backforcap += 1
-                    if(fin[-backforcap].part!=op.part):
-                        backforcap -= 1
+                    if(fin[-backforcap].changed):
                         break
 
                 # if capacity of the current pipette tip with this part is exceeded, will have to change tip
-                if(backforcap%caps[op.part]==0):
+                if(backforcap==caps[op.part]):
                     cost=1
 
     return cost
@@ -178,7 +191,7 @@ def w_to_subsets(w,subsets):
                 subsets.append(Ss(w[i][j], i))
 
 #read w from subsets
-def subsets_to_w(subsets,w):
+def subsets_to_w(subsets,w,address):
     #determine the number of wells
     maxwell=0
     for i in range(0, len(subsets)):
@@ -193,7 +206,7 @@ def subsets_to_w(subsets,w):
         w.append(emptyparts.copy())
 
     #fill w
-    address=addrfromw(w)
+
     for i in range(0, len(subsets)):
         for well in subsets[i].wells:
             w[well][address[subsets[i].part[0]]]=subsets[i].part
@@ -283,7 +296,7 @@ def jsonreader(filename, w, subsets,ignorelist):
     if (subsets != None):  # record subsets
         subsets = ss
     if (w != None):  # record the well array
-        subsets_to_w(ss, w)
+        subsets_to_w(ss, w, address)
 
     # return dictionary that allows to decode the input information from the outputs
     return dic, address

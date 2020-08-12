@@ -39,6 +39,7 @@ class Oper:
     def __init__(self, part, well):
         self.part = part
         self.well = well
+        self.changed = False
 
     def __str__(self):  # for printing the subset's part type and wells out
         strRep = self.part + ' -> w' + str(self.well)
@@ -62,7 +63,7 @@ def main():
     """randomly generate w [comment to keep the hand-written example]
     change 1st argument to define the number of wells
     change 4 last arguments to define the size of p, r, c and t part sets"""
-    w = wgenerator(96, 6, 6, 3, 4)
+    #w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing)
     ss=[]
