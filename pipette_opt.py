@@ -417,6 +417,8 @@ def startstop_actionlist(assembly,method, pipette):
     for i in range(1, len(fin)):
         # get operation cost
         cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
+        if (cost == 1):
+            fin[i].changed = True
         added[fin[i].well][address[fin[i].part[0]]] = 1
 
         # act accroding to cost
