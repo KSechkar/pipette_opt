@@ -4,6 +4,11 @@
 # Sort of like an API
 # v0.0.1, 10.8.2020
 
+import pickle
+import tkinter as tk
+from tkinter import messagebox as msgb
+from itertools import product
+
 from auxil import *
 from tsp_method import tsp_method
 from statespace_methods import iddfs, greedy_tree
@@ -52,6 +57,7 @@ Just make the following changes to assembly.py...
 """
 
 # -----------------------class definitions-----------------------------
+# FOR OPTIMISATION
 #operations
 class Oper:
     def __init__(self, part, well):
@@ -77,6 +83,195 @@ class Ss:
         for i in range(0, len(self.wells)):
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
+
+# FOR VISUALISATION
+class Vis(tk.Frame):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+
+        self.master.title("Construct contamination")
+        self.pack(fill=tk.BOTH, expand=1)
+
+        self.canvas = tk.Canvas(self)
+        self.mode = 'initial'
+        self.coord_w = {(i,j): -1 for i,j in product(range(1,9),range(1,13))}
+        self.rows = 'ABCDEFGH'
+        self.rowcoords = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8}
+        self.defx_tl = 30
+        self.defy_tl = 30
+        self.xside = 115
+        self.yside = 60
+        self.interval = 10
+        
+        self.basicpaint()
+
+        self.mode = 'general'
+
+    def basicpaint(self):
+        self.canvas.delete("all")
+
+        if(self.mode!='clicked'):
+            self.bold = []
+            empty1 = []
+            for i in range(0,len(visw[0])):
+                empty1.append(False)
+            for i in range(0,len(visw)):
+                self.bold.append(empty1.copy())
+
+        for i in range(1, 9):
+            for j in range(1, 13):
+                y_tl = self.defy_tl + (i - 1) * (self.yside + self.interval)
+                x_tl = self.defx_tl + (j - 1) * (self.xside + self.interval)
+                self.canvas.create_rectangle(x_tl, y_tl, x_tl + self.xside, y_tl + self.yside,
+                                             outline="#000")
+
+        # label self.rows and columns
+        for i in range(1, 9):
+            y_tl = self.defy_tl + self.yside / 2 + (i - 1) * (self.yside + self.interval)
+            self.canvas.create_text(5, y_tl, anchor=tk.W, font="Verdana",
+                                    text=self.rows[i - 1])
+        for j in range(1, 13):
+            x_tl = self.defx_tl + self.xside / 3 + (j - 1) * (self.xside + self.interval)
+            self.canvas.create_text(x_tl, 10, anchor=tk.W, font="Verdana",
+                                    text=str(j))
+        self.canvas.pack(fill=tk.BOTH, expand=1)
+
+        # display constructs
+        for i in range(0, len(visw)):
+            con = visdic['constructs'][i]
+            precoord = con['con_liqloc'][0].display_name
+            x_coord = self.rowcoords[precoord[0]]
+            if (precoord[2] != ''):
+                y_coord = int(precoord[1:3])
+            else:
+                y_coord = int(precoord[1])
+
+            y_tl = self.defy_tl + (y_coord - 1) * (self.yside + self.interval)
+            x_tl = self.defx_tl + (x_coord - 1) * (self.xside + self.interval)
+            self.canvas.create_text(x_tl + 2, y_tl + 10, anchor=tk.W, font=("Verdana", 6),
+                                    text=con['con_name'])
+            for j in range(0, len(visw[i])):
+                part_name = visdic['parts'][visw[i][j]]['part_name']
+                if(self.bold[i][j] == True):
+                    self.canvas.create_text(x_tl + 20, y_tl + 20 + j * 10, anchor=tk.W, font=('Verdana', 6,'bold'),
+                                            text=part_name, )
+                else:
+                    self.canvas.create_text(x_tl + 20, y_tl + 20 + j * 10, anchor=tk.W, font=('Verdana', 6),
+                                            text=part_name, )
+
+            if (self.mode == 'initial'):
+                self.coord_w[(x_coord, y_coord)] = i
+            elif (self.mode == 'clicked'):
+                if (self.select == i):
+                    self.canvas.create_rectangle(x_tl, y_tl, x_tl + self.xside, y_tl + self.yside, outline="#f00")
+        # if(self.mode == 'initial')
+            # self.tutorial()
+
+
+    def click(self,event):
+        n = self.clickedwell(event.x,event.y)
+        if(n!=-1):
+            self.mode = 'clicked'
+            self.bold_cont(n)
+            self.select = n
+            self.basicpaint()
+
+    def bold_cont(self, n):
+        self.bold = []
+        empty1 = []
+        for i in range(0, len(visw[0])):
+            empty1.append(False)
+        for i in range(0, len(visw)):
+            self.bold.append(empty1.copy())
+
+        # reset the tip change indicators in case of previous corruption
+
+        for i in range(0, len(visfin)):
+            visfin[i].changed = False
+
+        added = np.zeros((len(visw), len(visw[0])))  # tells which parts were added to which well
+
+        # get addresses of part types in w
+        address = addrfromw(visw)
+
+        # for the first operation in fin
+        cost = 1
+        visfin[0].changed = True
+        added[visfin[0].well][address[visfin[0].part[0]]] = 1
+        for i in range(1, len(visfin)):
+            one_cost = cost_func_with_w(visfin[0:i], visfin[i], visw, added, viscaps)
+            if (one_cost == 1):
+                visfin[i].changed = True
+            added[visfin[i].well][address[visfin[i].part[0]]] = 1
+
+            if (visfin[i].well == n and visfin[i].changed != True):
+                backroll = 1
+                while (True):
+                    previ = i - backroll
+                    for j in range(0, len(visw[visfin[previ].well])):
+                        if (added[visfin[previ].well][j] == 1):
+                            self.bold[visfin[previ].well][j] = True
+                    if (visfin[previ].changed == 1):
+                        break
+                    else:
+                        backroll += 1
+
+        # reset the tip change indicators
+        for i in range(0, len(visfin)):
+            visfin[i].changed = False
+
+        
+    def clickedwell(self,x,y):
+        x -= 25
+        y -= 25
+        x_coord=int(np.ceil(x/(self.xside+self.interval)))
+        y_coord=int(np.ceil(y/(self.yside+self.interval)))
+        return self.coord_w[(x_coord,y_coord)]
+
+    def unclick(self,event):
+        self.mode='general'
+        self.basicpaint()
+
+    def examine(self,event):
+        n = self.clickedwell(event.x, event.y)
+
+        title = 'Construct ' + visdic['constructs'][n]['con_name']
+        part_type = ['Promoter: ', 'RBS: ', 'CDS: ','Terminator: ']
+        message = ''
+        if(self.mode!='clicked'):
+            for i in range(0,len(visw[n])):
+                message += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
+                message += '                                    \n'
+        else:
+            if(n!=self.select):
+                present = 'Parts present before tip proceeded to selected well:\n'
+                notpresent = 'Parts not present before tip proceeded to selected well:\n'
+                for i in range(0,len(visw[n])):
+                    if(self.bold[n][i]==True):
+                        present += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
+                        present += '\n'
+                    else:
+                        notpresent += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
+                        notpresent += '\n'
+                message = present + '\n' + notpresent
+            else:
+                message = 'This is the well whose predecessors are displayed'
+
+        msgb.showinfo(title=title, message=message)
+
+    def tutorial(self):
+        title = 'Welcome to contamination viewer'
+        message = 'Left-click a well with construct to check which wells were visited befroe it\n'
+        message += 'and which parts were present in these wells then\n\n'
+        message += 'Middle-click anywhere to return to general view\n\n'
+        message += 'Right-click a well to inspect it in detail'
+        msgb.showinfo(title=title, message=message)
+    
+
+
 
 # ---------------------START-STOP ASSEMBLY---------------------
 # Modified LevelZeroAssembler.do_assembly() function
@@ -198,6 +393,9 @@ def startstop_actionlist(assembly,method, pipette):
     percentsavings = savings/len(fin)*100
     print('\npipette_opt: '+str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
 
+    # PART 2.3 Record in a .json file
+    rec('Start-Stop',w,fin,dic,caps)
+
     # PART 3 Convert internal-output operations into action list
 
     # PART 3.1 Initialise action list, define unchanging parameters
@@ -262,3 +460,33 @@ def startstop_distribute_dna(assembly, pipette):
         pipette.drop_tip()
 
     return
+
+
+# ---------------------RECORD AND VISUALISE---------------------
+def rec(assem,w,fin,dic,caps):
+    recording={'assembly': assem, 'w': w, 'fin': fin, 'dic': dic, 'caps': caps}
+    pickle.dump(recording, open('ppopt_recording.json', 'wb'))
+    return
+
+def vis():
+    rec = pickle.load(open('..\dna_assembler\ppopt_recording.json', 'rb'))
+    global visfin, visdic, visw, viscaps
+    visw = rec['w']
+    visfin = rec['fin']
+    visdic = rec['dic']
+    viscaps = rec['caps']
+
+
+    root = tk.Tk()
+    vis = Vis()
+    root.geometry("1600x700")
+
+    root.bind("<Button-1>", vis.click)
+    root.bind("<Button-2>", vis.unclick)
+    root.bind("<Button-3>", vis.examine)
+
+    root.mainloop()
+
+
+
+vis()
