@@ -106,8 +106,8 @@ def sametogether(subsets, w):
 
 
 # -------------STATE-SPACE REORDERINGS----------------
-# iddfs
-def reorder_iddfs(origsubs, subsets, D, depth,caps):
+# nns
+def reorder_nns(origsubs, subsets, D, depth,caps):
     # set maximum optimisation time for more than default, so that tree search is faster
     global maxtime
     maxtime=0.1
@@ -121,13 +121,13 @@ def reorder_iddfs(origsubs, subsets, D, depth,caps):
     while (len(subsets) < all_operations):
         # print(len(subsets))
 
-        nextop = reorder_iddfs_oneiter(origsubs, subsets, D.copy(), 1, depth,caps)
+        nextop = reorder_nns_oneiter(origsubs, subsets, D.copy(), 1, depth,caps)
         subsets.append(origsubs[nextop])
         origsubs.pop(nextop)
         Dupdate(D, subsets[-1])
 
 
-def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,caps):
+def reorder_nns_oneiter(origsubs, subsets, D, curdepth, depth,caps):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(origsubs)):
@@ -140,7 +140,7 @@ def reorder_iddfs_oneiter(origsubs, subsets, D, curdepth, depth,caps):
             origsubs.pop(i)
 
             # call next iteration
-            potcost[i] += reorder_iddfs_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
+            potcost[i] += reorder_nns_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
 
             # change the inputs back
             origsubs.insert(i, subsets[-1])

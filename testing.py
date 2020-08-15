@@ -7,16 +7,16 @@ import time
 import statistics as stats
 
 from tsp_method import tsp_method
-from statespace_methods import iddfs, greedy_tree
+from statespace_methods import nns, greedy_tree
 from input_generator import wgenerator, inputlist
 from auxil import *
 
 
 # --------------------------------MAIN---------------------------------
 def main():
-    MAXI = 97  # maximum number of wells we test+1
+    MAXI = 3  # maximum number of wells we test+1
     MINI = 2  # maximum number of wells we test+1
-    READ = 50  # how many inputs we read form each file
+    READ = 1  # how many inputs we read form each file
 
     # make column labels
     columns = ['Number of wells']
@@ -25,28 +25,23 @@ def main():
 
     # initialise results arrays with row labels
     means = [['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-iddfs depth 2'], ['TSP-leastout'],
+               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
                ['TSP-greedy'],
-               ['Nearest Neighbour'], ['iddfs depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['iddfs depth 2+sametogether'],
+               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
+               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
                ['Greedy+sametogether']]
     medians=[['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-iddfs depth 2'], ['TSP-leastout'],
+               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
                ['TSP-greedy'],
-               ['Nearest Neighbour'], ['iddfs depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['iddfs depth 2+sametogether'],
+               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
+               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
                ['Greedy+sametogether']]
     stdevs=[['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-iddfs depth 2'], ['TSP-leastout'],
+               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
                ['TSP-greedy'],
-               ['Nearest Neighbour'], ['iddfs depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['iddfs depth 2+sametogether'],
+               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
+               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
                ['Greedy+sametogether']]
-
-    # pipette capacity
-    # find least capacity of all to make it the common value
-    # With 40fmol of each part and concentrations from 'Start-Stop Assembly Calculator' it'll be 5
-    cap = commoncapac(pipcap=10,airgap=1,filename='input/doses.csv')
 
     #get results
     for i in range(MINI,MAXI):
@@ -55,7 +50,8 @@ def main():
             all_sols.append([])
 
         # open file with inputs
-        filename='input/100i_'+str(i)+'w_6p_6r_3c_4t.csv'
+        #filename='input/100i_'+str(i)+'w_6p_6r_3c_4t.csv'
+        filename = 'input/known.csv'
         with open(filename,mode="r") as infile:
             infile_read = csv.reader(infile)
             for j in range(0,READ):
@@ -66,24 +62,25 @@ def main():
                 w_to_subsets(w, ss)
                 reqvols = {}
                 for s in ss:
-                    if (s.reag[0] == 'p'):
-                        reqvols[s.reag] = 1.09
-                    elif (s.reag[0] == 'r'):
-                        reqvols[s.reag] = 0.33
-                    elif (s.reag[0] == 'c'):
-                        reqvols[s.reag] = 0.36
+                    if (s.part[0] == 'p'):
+                        reqvols[s.part] = 1.09
+                    elif (s.part[0] == 'r'):
+                        reqvols[s.part] = 0.33
+                    elif (s.part[0] == 'c'):
+                        reqvols[s.part] = 0.36
                     else:
-                        reqvols[s.reag] = 0.75
+                        reqvols[s.part] = 0.75
                 # get capacitites
                 caps = capacities(reqvols, 10, 1.0)
 
                 for itr in range(0,len(means)):
+                    # print(means[itr][0])
                     fin = []
                     if(means[itr][0][0:3]=='TSP'):
                         if(len(means[itr][0])==3):
-                            tsp_method(w,fin,reord=None,filename=None,cap=cap)
+                            tsp_method(w,fin,reord=None,filename=None,caps=caps)
                         else:
-                            tsp_method(w,fin,means[itr][0][4:],filename=None,cap=cap)
+                            tsp_method(w,fin,means[itr][0][4:],filename=None,caps=caps)
                     else:
                         #define reordering
                         if(means[itr][0][-12:]=='sametogether'):
@@ -93,11 +90,11 @@ def main():
 
                         #get solution
                         if(means[itr][0][:7]=='Nearest'):
-                            iddfs(w,fin,1,True,reord,cap)
-                        elif(means[itr][0][:5]=='iddfs'):
-                            iddfs(w,fin,2,True,reord,cap)
+                            nns(w,fin,1,reord,caps)
+                        elif(means[itr][0][:3]=='nns'):
+                            nns(w,fin,2,reord,caps)
                         elif (means[itr][0][:6] == 'Greedy'):
-                            greedy_tree(w, fin, 'optimistic+cap', reord,cap)
+                            greedy_tree(w, fin, 'optimistic+cap', reord,caps)
 
                     #get route cost and record
                     rc=route_cost_with_w(fin,w,caps)
@@ -107,7 +104,7 @@ def main():
         for itr in range(0,len(means)):
             means[itr].append(str(stats.mean(all_sols[itr])))
             medians[itr].append(str(stats.median(all_sols[itr])))
-            stdevs[itr].append(str(stats.stdev(all_sols[itr])))
+            #stdevs[itr].append(str(stats.stdev(all_sols[itr])))
 
         with open('progress/tsp_log.txt',mode="w+") as progress:
             progress.write('Case for '+str(i)+' wells processed - '+str(96-i)+' to go')
@@ -177,7 +174,7 @@ def runtest(filename,hm_inputs):
             w = nextw(infile_read)
 
             """if(j==0):
-                iddfs(w,fin,1,True,reord)
+                nns(w,fin,1,True,reord)
             elif(j==1):
                 greedy_tree(w,fin,'optimistic',reord)
             else:"""

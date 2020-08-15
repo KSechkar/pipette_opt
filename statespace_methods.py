@@ -107,11 +107,11 @@ def main():
     # get capacitites
     caps = capacities(reqvols, 10, 1.0)
 
-    # use nearest-neighbour tree search to solve the problem
-    iddfs(w, fin, 1, reord='sametogether', caps=caps)
+    # use nearest-neighbour tree search (NNS) to solve the problem
+    # nns(w, fin, 1, reord='sametogether', caps=caps)
 
-    # use iddfs to solve the problem
-    # iddfs(w1, fin, 2, reord=None, caps=caps)
+    # use depth 2 NNS to solve the problem
+    nns(w, fin, 2, reord=None, caps=caps)
 
     # use a_star on a tree to solve the problem (NOT WORKING)
     # a_star_tree(w,fin,'optimistic')
@@ -130,9 +130,9 @@ def main():
     print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w,caps)))
 
 
-# -------------------------------SOLVERS (IDDFS)-------------------------------
-# iddfs function
-def iddfs(w, fin, depth, reord,caps):
+# -------------------------------SOLVERS (nnS)-------------------------------
+# nns function
+def nns(w, fin, depth, reord,caps):
     ops = []  # an Oper list of operations to be performed
     getops(w, ops, reord)
 
@@ -156,7 +156,8 @@ def iddfs(w, fin, depth, reord,caps):
     added[fin[0].well][address[fin[0].part[0]]] = 1
 
     while (len(fin) < all_operations):
-        nextop = iddfs_oneiter_with_w(ops, fin, 1, depth,added)
+        # print(len(fin))
+        nextop = nns_oneiter_with_w(ops, fin, 1, depth,added)
         nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps)
 
         added[ops[nextop].well][address[ops[nextop].part[0]]] = 1
@@ -166,28 +167,8 @@ def iddfs(w, fin, depth, reord,caps):
         ops.pop(nextop)
 
 
-"""
-# single iteration of iddfs
-def iddfs_oneiter(ops, fin, curdepth, depth):
-    # determine the potential cost of each possible operation
-    potcost = []
-    for i in range(0, len(ops)):
-        potcost.append(cost_func(fin, ops[i]))
-        # next iteration
-        if (curdepth < depth and len(ops) != 1):
-            potcost[i] += iddfs_oneiter(ops[0:i] + ops[(i + 1):len(ops)], fin + [ops[i]], curdepth + 1, depth)
-
-    # act according to the determined costs
-    if (curdepth == 1):
-        answer = potcost.index(min(potcost))
-    else:
-        answer = min(potcost)
-    return answer
-"""
-
-
-# single iteration of iddfs (with w)
-def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
+# single iteration of NNs (with w)
+def nns_oneiter_with_w(ops, fin, curdepth, depth,added):
     # determine the potential cost of each possible operation
     potcost = []
     for i in range(0, len(ops)):
@@ -201,7 +182,7 @@ def iddfs_oneiter_with_w(ops, fin, curdepth, depth,added):
             ops.pop(i)
 
             # call next iteration
-            potcost[i] += iddfs_oneiter_with_w(ops, fin, curdepth + 1, depth, added)
+            potcost[i] += nns_oneiter_with_w(ops, fin, curdepth + 1, depth, added)
 
             # change the inputs back
             ops.insert(i, fin[-1])
@@ -414,7 +395,7 @@ def clearkids(kids):
 # -------------------------------AUXILIARY FUNCTIONS-------------------------------
 # get a list of all operations from w
 def getops(w, ops, reord):
-    # as iddfs and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
+    # as nns and greedy search pick the FIRST element with minimum cost, the pre-set order matters, hence 'reord'
     if (reord == None):
         for well in range(0, len(w)):
             for part in range(0, len(w[well])):

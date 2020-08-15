@@ -10,7 +10,7 @@ import time
 # import functions from own files
 from input_generator import wgenerator
 from auxil import *
-from tsp_reorder import leastout, sametogether, reorder_iddfs, reorder_greedy
+from tsp_reorder import leastout, sametogether, reorder_nns, reorder_greedy
 from tsp_lp_solver import *
 
 from tspy import TSP  # TSP solver package
@@ -125,10 +125,10 @@ def tsp_method(w, fin, reord, filename, caps):
     elif(reord!=None):  # (various state-space reorderings)
         origsubs = subsets.copy()
         subsets = []
-        if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. iddfs depth 1)
-            reorder_iddfs(origsubs, subsets, D.copy(), 1, caps)
-        elif (reord == 'iddfs depth 2'):  # ...iddfs
-            reorder_iddfs(origsubs, subsets, D.copy(), 2, caps)
+        if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. nns depth 1)
+            reorder_nns(origsubs, subsets, D.copy(), 1, caps)
+        elif (reord == 'nns depth 2'):  # ...nns
+            reorder_nns(origsubs, subsets, D.copy(), 2, caps)
         elif (reord == 'greedy'):  # ...greedy tree search
             reorder_greedy(origsubs, subsets, D.copy(), 'countall',caps)
         # elif (reord == 'a*'):  # ...A*  tree search
