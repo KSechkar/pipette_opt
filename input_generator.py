@@ -36,10 +36,33 @@ def inputlist(hm_inputs, hm_wells, hm_p, hm_r, hm_c, hm_t):
                 infile_write.writerow([w[j][0], w[j][1], w[j][2], w[j][3]])
             infile_write.writerow(['end of input'])
 
+def alldiff(hm_wells,hm_types):
+    filename = 'input/All_different_' + str(hm_wells) + '_wells.csv'
+    typenames = 'prctabdefghijklmnoqsuvwxyz'
+    with open(filename, mode="w+", newline='') as infile:
+        infile_write = csv.writer(infile, delimiter=',')
+        for i in range(0, hm_wells):
+            well_entry = []
+            for j in range(0,hm_types):
+                well_entry.append(typenames[j]+str(i))
+            infile_write.writerow(well_entry)
+        infile_write.writerow(['end of input'])
+
+def allsame(hm_wells,hm_types):
+    filename = 'input/All_same_' + str(hm_wells) + '_wells.csv'
+    typenames = 'prctabdefghijklmnoqsuvwxyz'
+    with open(filename, mode="w+", newline='') as infile:
+        infile_write = csv.writer(infile, delimiter=',')
+        for i in range(0, hm_wells):
+            well_entry = []
+            for j in range(0,hm_types):
+                well_entry.append(typenames[j]+str(0))
+            infile_write.writerow(well_entry)
+        infile_write.writerow(['end of input'])
 
 # main function  is only needed to test out the generation functions
 def main():
-    print(wgenerator(2, 4, 2, 6, 2))
+    allsame(96,4)
 
 
 if __name__ == "__main__":
