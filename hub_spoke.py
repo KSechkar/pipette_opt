@@ -50,14 +50,6 @@ class Hub:
         self.sets={} # wells get promoted to a higher-ranked hub in sets if they can be transferred to the same hub
                      # here, dictionary key is the extra part in the new hub
 
-        # CAPACITY DETERMINATION
-        # find volume to be delivered to each spoke from this hub (assuming perfect mixing)
-        delivol = 0
-        for r in parts:
-            delivol += pipinfo['reqvols'][r]
-
-        self.cap = capac(pipinfo['pipcap'],delivol,pipinfo['airgap'])
-
     # add a new well served by the hub
     def getwell(self, well):
         self.wells.append(well) # add well
@@ -146,9 +138,9 @@ def main():
 # solver function, returns cost
 def hubspoke(w, fin, pipinfo):
     # make global copy of w (to avoid passing it many times between functions)
-    global globw
+    global globw, globcaps
     globw = w
-
+    globcaps = capacities(pipcap=pipinfo['pipcap'],airgap=pipinfo['airgap'],reqvols=pipinfo['reqvols'])
     # get list of parts (sortent and unsorted by type)
     partlist, listall = countparts()
 
@@ -178,21 +170,10 @@ def hubspoke(w, fin, pipinfo):
 
     # assign each well to SOME level-1 hub
     for i in range(0,len(globw)):
-        randpart=0
-        hubs[1][globw[i][randpart]].getwell(Hubwell(globw[i],i,[0]))
+        hubs[1][globw[i][0]].getwell(Hubwell(globw[i],i,[0]))
 
     for r in range(2,hirank):
         rankup(r-1)
-
-    """
-    TEST ONLY
-    ranked = 0
-    for rank in range(1,4):
-        for h in hubs[rank].values():
-            if(len(h.wells)!=0):
-                ranked += len(h.wells)
-    print(ranked)
-    """
 
     # record operations
     makefin(fin)
@@ -236,9 +217,9 @@ def rankup(rank):
                 nexthublen = len(hubs[rank + 1][nexthublink].wells)
                 hublen = len(hub.wells)
                 setlen = len(hub.sets[s])
-                nexthubcap=hubs[rank + 1][nexthublink].cap
-                tipsnow = hubtips(hublen,hub.cap,rank) + hubtips(nexthublen,nexthubcap,rank+1)
-                tipsthen = hubtips(hublen - setlen,hub.cap,rank) + hubtips(nexthublen + setlen,nexthubcap,rank+1)
+                nexthubparts=hubs[rank + 1][nexthublink].parts
+                tipsnow = hubtips(hublen,hub.parts,rank) + hubtips(nexthublen,nexthubparts,rank+1)
+                tipsthen = hubtips(hublen - setlen,hub.parts,rank) + hubtips(nexthublen + setlen,nexthubparts,rank+1)
                 thisimprovement = tipsnow - tipsthen
 
                 # if this is the new most-improved player, record that
@@ -335,20 +316,21 @@ def costfromhubs():
     cost = 0
     for rank in range(1, len(hubs)+1):
         for hub in hubs[rank].values():
-            cost += hubtips(len(hub.wells), hub.cap, rank)
+            cost += hubtips(len(hub.wells), hub.parts, rank)
     return cost
 
 
-def hubtips(hublen, hubcap, rank):
+def hubtips(hublen, hubparts, rank):
     if (hublen == 0): # no wells => no tips at all needed
         return 0
-    elif(hubcap==0): # if there is no way to deliver even one dose in a pipette at all
-        return np.inf
     else:
-        cost = rank * np.ceil(hublen / hubcap)  # number of tips needed to make the hub mixture
-        cost += np.ceil(hublen / hubcap) - 1  # no. of tips to deliver mixture. -1 as we reuse last tip from before
-        coeff = 4 - rank
-        cost += coeff * hublen  # number of tips to deliver remaining parts to spoke wells
+        cost = 0
+        for i in range(0,rank):
+            cost += np.ceil(hublen/globcaps[hubparts[i]]) # add costs of adding each part to mixture
+
+        # mixture delivered by the last tip on => cost unchanged
+
+        cost += (4 - rank) * hublen  # number of tips to deliver remaining parts to spoke wells
         return cost
 
 
