@@ -8,10 +8,11 @@ import pickle
 import tkinter as tk
 from tkinter import messagebox as msgb
 from itertools import product
+from opentrons import instruments, labware
 
 from auxil import *
 from tsp_method import tsp_method
-from statespace_methods import iddfs, greedy_tree
+from statespace_methods import nns, greedy_tree
 
 """
 THE START-STOP ASSEMBLY CAN NOW BENEFIT FROM THE PIPETTE TIP OPTIMISATION ALGORITHMS!
@@ -37,16 +38,16 @@ Just make the following changes to assembly.py...
     by:      total_mm = ppopt.startstop_do_assembly(destination_location_manager=dest_loc_manager, dna_pipette=p10, method=...)
     
     ! method can be...
-        ...'TSP'
-        ...'TSP+sametogether'
-        ...'TSP+leastout'
-        ...'TSP+greedy'
-        ...'TSP+nearest neighbour'
-        ...'TSP+iddfs depth 2'
+        ...'LP' (recommended, requires GUROBI optimiser)
+        ...'LP+sametogether'
+        ...'LP+leastout'
+        ...'LP+greedy'
+        ...'LP+nearest neighbour'
+        ...'LP+iddfs depth 2'
         ...'Nearest Neighbour'
         ...'iddfs depth 2'
         ...'Greedy'
-        ...'Nearest Neighbour+sametogether'
+        ...'Nearest Neighbour+sametogether' (recommended Open Access option)
         ...'iddfs depth 2+sametogether'
         ...'Greedy+sametogether'
         Note that Hub-spoke is NOT supported
@@ -54,6 +55,28 @@ Just make the following changes to assembly.py...
 - Line 388
     Replace: assembler.distribute_dna(pipette=p300)
     by:      ppopt.startstop_distribute_dna(assembler,pipette=p10)
+"""
+
+"""
+FOR BASIC ASSEMBLY
+While this API should be operational, it was not tested with any real BASIC assembly inputs.
+Correctness of all assumptions is only guaranteed when the Link between part N and N+1 is the same for every construct.
+
+In assembly_template.py:
+- After all import statements, insert (if DNABOT and pipette_opt project folders are in the same folder):
+    # Importing API from the neighbouring folder with pipette_opt project
+    # Will be different in the future (maybe pipette_opt will be a package?)
+    import sys
+    sys.path.append('../pipette_opt')
+    import pipette_opt as ppopt
+
+- Lines 76-80
+    Comment the whole 'part transfers' section
+- Line 81:
+    Insert: 
+            action_list = ppopt.basic_part_transfer_actions(final_assembly_dict,1.5,pipette,method=...)
+            ppopt.basic_execute(action_list,pipette,magbead_plate,destination_plate)
+    cf. Start-Stop Assembly for choosing the method
 """
 
 # -----------------------class definitions-----------------------------
@@ -69,7 +92,7 @@ class Oper:
         strRep = self.part + ' -> w' + str(self.well)
         return strRep
 
-#operation subsets - needed for TSP method
+#operation subsets - needed for LP method
 class Ss:
     def __init__(self, part, wellno):  # initialisation
         self.part = part
@@ -86,7 +109,8 @@ class Ss:
 
 # FOR VISUALISATION
 class Vis(tk.Frame):
-    def __init__(self):
+    def __init__(self,assem):
+        self.assembly = assem
         super().__init__()
         self.initUI()
 
@@ -97,13 +121,13 @@ class Vis(tk.Frame):
 
         self.canvas = tk.Canvas(self)
         self.mode = 'initial'
-        self.coord_w = {(i,j): -1 for i,j in product(range(1,9),range(1,13))}
+        self.coord_w = {(i, j): -1 for i, j in product(range(1, 9), range(1, 13))}
         self.rows = 'ABCDEFGH'
         self.rowcoords = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8}
         self.defx_tl = 30
         self.defy_tl = 30
         self.xside = 115
-        self.yside = 60
+        self.yside = 10 * len(visw[0]) + 20
         self.interval = 10
         
         self.basicpaint()
@@ -142,12 +166,13 @@ class Vis(tk.Frame):
         # display constructs
         for i in range(0, len(visw)):
             con = visdic['constructs'][i]
-            precoord = con['con_liqloc'][0].display_name
-            x_coord = self.rowcoords[precoord[0]]
-            if (precoord[2] != ''):
-                y_coord = int(precoord[1:3])
-            else:
-                y_coord = int(precoord[1])
+            if (self.assembly=='Start-Stop'):
+                precoord = con['con_liqloc'][0].display_name
+            elif(self.assembly=='BASIC'):
+                precoord = con['con_liqloc']
+
+            y_coord = self.rowcoords[precoord[0]]
+            x_coord = int(precoord[1:])
 
             y_tl = self.defy_tl + (y_coord - 1) * (self.yside + self.interval)
             x_tl = self.defx_tl + (x_coord - 1) * (self.xside + self.interval)
@@ -239,7 +264,15 @@ class Vis(tk.Frame):
         n = self.clickedwell(event.x, event.y)
 
         title = 'Construct ' + visdic['constructs'][n]['con_name']
-        part_type = ['Promoter: ', 'RBS: ', 'CDS: ','Terminator: ']
+
+        # for Start-Stop Assembly, we exactly know the part types
+        if(self.assembly=='Start-Stop'):
+            part_type = ['Promoter: ', 'RBS: ', 'CDS: ','Terminator: ','Backbone: ']
+        # otherwise, create generic insert names
+        else:
+            part_type = ['Insert 1: ']
+            for i in range(1,len(visw[n])):
+                part_type += ['Insert '+str(i+1)+': ']
         message = ''
         if(self.mode!='clicked'):
             for i in range(0,len(visw[n])):
@@ -269,9 +302,7 @@ class Vis(tk.Frame):
         message += 'Middle-click anywhere to return to general view\n\n'
         message += 'Right-click a well to inspect it in detail'
         msgb.showinfo(title=title, message=message)
-    
-
-
+        
 
 # ---------------------START-STOP ASSEMBLY---------------------
 # Modified LevelZeroAssembler.do_assembly() function
@@ -303,11 +334,11 @@ def startstop_actionlist(assembly,method, pipette):
     reqvols ={} # list of required liquid volumes (needed for capacity)
 
     # PART 1.2 Declare auxiliary objects
-    ignorelist = ['vector_backbone'] # backbone part must be ingored for start-stop assembly
+    ignorelist = [] # list of parts to be ignored
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    letcodes = 'prctabdefghijklmnoqsuvwxyz'  # one-letter ids standing in for part types
+    letcodes = 'prctbadefghijklmnoqsuvxyz'  # one-letter ids standing in for part types
     i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
     i_addr = 0 # points to address in w of the (potential) next part type to record
 
@@ -318,7 +349,7 @@ def startstop_actionlist(assembly,method, pipette):
                                      'con_liqloc': construct.liquid_location}
 
         # get parts
-        parts = construct.plasmid # get list of parts of the cinstruct
+        parts = construct.plasmid # get list of parts of the construct
         well_parts=[] # will store all codes of parts of current well
         for part in parts.keys():
             # skip an ignored part type
@@ -368,11 +399,11 @@ def startstop_actionlist(assembly,method, pipette):
     fin = [] # output operations (internal format)
 
     # PART 2.1 call algorithm specified by method
-    if (method[0:3] == 'TSP'): # TSP-based
-        if (len(method) == 3):
+    if (method[0:2] == 'LP'): # LP-based
+        if (len(method) == 2):
             tsp_method(w, fin, reord=None, filename=None, caps=caps)
         else:
-            tsp_method(w, fin, method[4:], filename=None, caps=caps)
+            tsp_method(w, fin, method[3:], filename=None, caps=caps)
     else: # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -381,9 +412,9 @@ def startstop_actionlist(assembly,method, pipette):
             reord = None
         # get solution
         if (method[:7] == 'Nearest'):
-            iddfs(w, fin, 1, True, reord, caps)
-        elif (method[:5] == 'iddfs'):
-            iddfs(w, fin, 2, True, reord, caps)
+            nns(w, fin, 1, reord, caps)
+        elif (method[:3] == 'nns'):
+            nns(w, fin, 2, reord, caps)
         elif (method[:6] == 'Greedy'):
             greedy_tree(w, fin, 'optimistic+cap', reord, caps)
 
@@ -409,6 +440,7 @@ def startstop_actionlist(assembly,method, pipette):
 
     # PART 3.3 The first operation in fin
     added[fin[0].well][address[fin[0].part[0]]] = 1
+    fin[0].changed = True
     part_source=dic['parts'][fin[0].part]['part_liqloc']
     part_vol = reqvols[fin[0].part]
     part_dest = dic['constructs'][fin[0].well]['con_liqloc']
@@ -437,8 +469,8 @@ def startstop_actionlist(assembly,method, pipette):
         if(i == len(fin)-1):
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 
-
     return action_list
+
 
 def startstop_distribute_dna(assembly, pipette):
     for action in assembly.action_list:
@@ -461,27 +493,208 @@ def startstop_distribute_dna(assembly, pipette):
         # PART 4 Drop used tip
         pipette.drop_tip()
 
+    vis()
+    return
+
+
+# ---------------------BASIC ASSEMBLY---------------------------
+def basic_part_transfer_actions(method,final_assembly_dict, part_vol, pipette):
+    # PART 1 Convert data into internal format
+
+    # PART 1.1 Empty objects to fill
+    w = []  # the array with information on constructs and parts, used as input to the algorithms
+    dic = {'constructs': {}, 'parts': {}}  # the dictionary to decode algorithm outputs into action list
+    address = {}  # addresses of part types in w
+    reqvols = {}  # list of required liquid volumes (needed for capacity)
+
+    # PART 1.2 Declare auxiliary objects
+    ignorelist =[] # !! what would we ignore with BASIC assembly?
+    parttype = {}  # indices of parts to be recorded in the subsets list
+    partnum = {}  # current number of each part type different species
+    wellno = 0  # well counter
+    letcodes = 'abcdefghijklmnopqrstuvxyz'  # one-letter ids standing in for part types
+    i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
+    i_addr = 0  # points to address in w of the (potential) next part type to record
+
+
+    # PART 1.3 Read the constructs
+    for construct in final_assembly_dict.keys():
+        # match well number in w with its location on the plate and construct
+        dic['constructs'][wellno] = {'con_liqloc': construct}
+
+        # get parts
+        parts = final_assembly_dict[construct] # get list of parts of the cinstruct
+        well_parts=[] # will store all codes of parts of current well
+        for i in range(0,len(parts)):
+            # skip an ignored part type
+            ig = False
+            for ignore in ignorelist:
+                if (parts[i] == ignore):
+                    ig = True
+                    break
+            if(ig):
+                continue
+
+            #  if this is the first entry, fill the address dictionary
+            if (wellno == 0):
+                parttype[i] = letcodes[i_letcodes]
+                partnum[letcodes[i_letcodes]] = 0
+                address[letcodes[i_letcodes]] = i_addr
+                i_letcodes += 1
+                i_addr += 1
+
+            # determine part name
+            partloc = parts[i]
+
+            # check if such location is already in the dictionary
+            match = False
+            for partcode in dic['parts'].keys():
+                if (partloc == dic['parts'][partcode]['part_liqloc']):  # yes, record the part code in w
+                    well_parts.append(partcode)
+                    match = True
+                    break
+
+            if (not match):  # if no, update the dictionary
+                newcode = parttype[i] + str(partnum[parttype[i]])  # determine which entry to record
+                dic['parts'][newcode] = {'part_liqloc': parts[i]}  # put the entry into dictionary
+                well_parts.append(newcode)  # record part code in w
+                reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
+                partnum[parttype[i]] += 1  # update number of parts of this class
+
+        w.append(well_parts.copy())  # record parts of the latest well
+        wellno += 1  # proceeding to next well
+
+    # PART 1.4 Get capacities
+    air_gap=1
+    caps = capacities(reqvols=reqvols, pipcap=pipette.max_volume, airgap=air_gap)
+
+    # PART 2 Solve the problem
+    fin = []  # output operations (internal format)
+
+    # PART 2.1 call algorithm specified by method
+    if (method[0:2] == 'LP'):  # LP-based
+        if (len(method) == 2):
+            tsp_method(w, fin, reord=None, filename=None, caps=caps)
+        else:
+            tsp_method(w, fin, method[3:], filename=None, caps=caps)
+    else:  # state-space search
+        # determine reordeing
+        if (method[-12:] == 'sametogether'):
+            reord = 'sametogether'
+        else:
+            reord = None
+        # get solution
+        if (method[:7] == 'Nearest'):
+            nns(w, fin, 1, reord, caps)
+        elif (method[:5] == 'iddfs'):
+            nns(w, fin, 2, reord, caps)
+        elif (method[:6] == 'Greedy'):
+            greedy_tree(w, fin, 'optimistic+cap', reord, caps)
+
+    # PART 2.2 Print report on solution benefits
+    cost = route_cost_with_w(fin, w, caps)
+    savings = len(fin) - cost
+    percentsavings = savings / len(fin) * 100
+    print('\npipette_opt: ' + str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
+
+    # PART 2.3 record
+    rec('BASIC', w, fin, dic, caps)
+
+    # PART 3 Convert internal-output operations into an action list
+
+    # PART 3.1 Initialise action list, define unchanging parameters
+    action_list = tuple()
+    new_tip = 'once'
+
+    # PART 3.2 Define auxiliary variables
+    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
+
+    # PART 3.3 The first operation in fin
+    added[fin[0].well][address[fin[0].part[0]]] = 1
+    fin[0].changed = True
+    part_source = dic['parts'][fin[0].part]['part_liqloc']
+    part_vol = reqvols[fin[0].part]
+    part_dest = [dic['constructs'][fin[0].well]['con_liqloc']]
+
+    # PART 3.4 All later operations
+    for i in range(1, len(fin)):
+        # get operation cost
+        cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
+        if (cost == 1):
+            fin[i].changed = True
+        added[fin[i].well][address[fin[i].part[0]]] = 1
+
+        # act accroding to cost
+        if (cost == 0):  # if 0, tip is unchanged
+            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']] + part_dest  # mind that we add at the beginning
+        else:  # if 1, there is new tip, so...
+            # record last tip's actions
+            action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
+
+            # start recording new tip details
+            part_source = dic['parts'][fin[i].part]['part_liqloc']
+            part_vol = reqvols[fin[i].part]
+            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']]
+
+        # if this is the end, just record last tip's actions
+        if (i == len(fin) - 1):
+            action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
+
+    return action_list
+
+
+def basic_execute(action_list,pipette,magbead_plate,destination_plate):
+    for action in action_list:
+        # PART 1 Get directions
+        source_well, destination_wells, volume, new_tip, air_gap = action
+
+        # PART 2 Get new tip
+        pipette.pick_up_tip()
+
+        # PART 3 Aspirate
+        for i in range(0, len(destination_wells) - 1):
+            pipette.aspirate(volume, magbead_plate.wells(source_well)).air_gap(air_gap)
+        pipette.aspirate(volume, magbead_plate.wells(source_well))
+
+        # PART 4 Distribute
+        for i in range(0, len(destination_wells) - 1):
+            pipette.dispense(volume + air_gap, destination_plate.wells(destination_wells[i]))
+        pipette.dispense(volume, destination_plate.wells(destination_wells[- 1]))
+
+        # PART 4 Drop used tip
+        pipette.drop_tip()
+
     return
 
 
 # ---------------------RECORD AND VISUALISE---------------------
 def rec(assem,w,fin,dic,caps):
     recording={'assembly': assem, 'w': w, 'fin': fin, 'dic': dic, 'caps': caps}
-    pickle.dump(recording, open('ppopt_recording.json', 'wb'))
+    pickle.dump(recording, open('..\ppopt_recording.p', 'wb'))
+
+
     return
 
 def vis():
-    rec = pickle.load(open('..\dna_assembler\ppopt_recording.json', 'rb'))
+    rec = pickle.load(open('..\ppopt_recording.p', 'rb'))
     global visfin, visdic, visw, viscaps
     visw = rec['w']
     visfin = rec['fin']
     visdic = rec['dic']
     viscaps = rec['caps']
 
+    # BASIC assembly does not have inherent names of parts or constructs stored,
+    # as parts are PREPARED IN SITU on a magnetic bead well plate.
+    # Thus we refer to these parts by their location on magbead plate only.
+    if(rec['assembly']=='BASIC'):
+        for part in visdic['parts'].values():
+            part['part_name'] = 'Magbead well ' + part['part_liqloc']
+        for construct in visdic['constructs'].values():
+            construct['con_name'] = 'Well ' + construct['con_liqloc']
 
     root = tk.Tk()
-    vis = Vis()
-    root.geometry("1600x700")
+    vis = Vis(rec['assembly'])
+    root.geometry("1600x900")
 
     root.bind("<Button-1>", vis.click)
     root.bind("<Button-2>", vis.unclick)
@@ -490,5 +703,24 @@ def vis():
     root.mainloop()
 
 
+# -------------------------- MAIN (TEST ONLY) -------------------------
+def main():
+    final_assembly_dict = {"A1": ["A7", "B7", "C7", "D7", "E7"], "B1": ["F7", "B7", "G7", "H7", "E7"],
+                           "C1": ["A7", "A8", "B8", "C8", "E7"], "D1": ["F7", "A8", "G7", "D7", "E7"]}
 
-vis()
+    PIPETTE_MOUNT = 'right'
+    MAG_PLATE_TYPE = 'corning_96_wellplate_360ul_flat'
+    MAG_PLATE_POSITION = '1'
+    DESTINATION_PLATE_TYPE = 'opentrons_96_tiprack_300ul'
+    TEMPDECK_SLOT = '4'
+
+    pipette = instruments.P10_Single(mount=PIPETTE_MOUNT)
+    magbead_plate = labware.load(MAG_PLATE_TYPE, MAG_PLATE_POSITION)
+    destination_plate = labware.load(DESTINATION_PLATE_TYPE, TEMPDECK_SLOT, share=True)
+
+    action_list = basic_part_transfer_actions('LP+sametogether',final_assembly_dict,1.5,pipette)
+    #basic_execute(action_list,pipette,magbead_plate,destination_plate)
+    vis()
+
+if __name__ == "__main__":
+    main()
