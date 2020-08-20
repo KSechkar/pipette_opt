@@ -113,7 +113,7 @@ def sametogether(subsets, w):
 # Nearest Neighbour tree search; the depth argument determines search depth
 def reorder_nns(origsubs, subsets, D, depth,caps):
     # PART 1: initial preparations
-    # set maximum optimisation time for the cost function
+    # set maximum optimisation time for the cost function (less than default for quicker searching)
     global maxtime
     maxtime=0.1
 
@@ -174,7 +174,7 @@ def reorder_nns_oneiter(origsubs, subsets, D, curdepth, depth, caps):
 # Greedy search; the heur argument determines which heuristic is used
 def reorder_greedy(origsubs, subsets, D, heur, caps):
     # PART 1: initial preparations
-    # set maximum optimisation time for the cost function
+    # set maximum optimisation time for the cost function  (less than default for quicker searching)
     global maxtime
     maxtime = 0.1
 
@@ -290,7 +290,7 @@ def solveforcost(subset, D, cap):
     sublen = len(subset.wells)
 
     # initialise the subset's matrix subD
-    subD = np.zeros((sublen + 1, sublen + 1))  # an extra 0 node is needed for the non-capacitated version
+    subD = np.zeros((sublen + 1, sublen + 1))  # an extra 0 node is needed for tspy compatibility
 
     # PART 2: select submatrix and update D as if problem for the subset is already solved
     """

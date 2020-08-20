@@ -152,7 +152,7 @@ def lp_cap(D, cap, maxtime):
         m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(nodes, 2))
         m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
 
-    # PART 2.3: explicit 2-hop loop elimination for extra robustness
+    # PART 2.3: 2-hop loop elimination
     m.addConstr(
         gp.quicksum(vars[i, j] * dist[(i, j)] + vars[j, i] * dist[(j, i)] for i, j in combinations(nodes, 2)) == 0)
 
@@ -187,20 +187,22 @@ def recover(edges):
 
     # PART 2: get the chains
     while True:
-        # see if no more unvisited nodes are left and if so, quit the cycle
+        # see if no more unvisited nodes are left
         noneleft=True
         for i in range(1,len(unvisited)):
             if (unvisited[i]):
                 noneleft=False
-                unvisited[i]=False
                 break
+
+        # proceed to return statement if indeed no unvisited nodes are left
         if(noneleft):
             break
 
-        # get the first found unvisited node
-        thischain=[nodes[i-1]]
+        # otherwise, start reconstructing the chain which the unvisited node we found belongs to
+        thischain = [nodes[i - 1]]
+        unvisited[i] = False # and NOW, the node has been visited
 
-        # now, we need to find the nodes that go before and after it in the chain
+        # now we need to find the nodes that go before and after it in the chain
         # first, get the nodes after
         while True:
             # get the next node in chain
@@ -248,7 +250,7 @@ def main():
     for i in range(0, len(A)):
         A[i][i] = surelymore
     # t1=time.time()
-    print(lp_cap(A,2))
+    print(lp_cap(A,2,0.1))
     # print(time.time()-t1)
 
 

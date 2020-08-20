@@ -105,19 +105,26 @@ def singlesub(subset, D, fin, cap):
     sublen = len(subset.wells)
 
     # initialise subD, the distance matrix for the subgraph
-    subD = np.zeros((sublen + 1,sublen + 1)) # an extra 0 node is needed for the non-capacitated version
+    subD = np.zeros((sublen + 1,sublen + 1)) # an extra 0 node is needed for tspy compatibility
     subD[0][0]=len(D)*1000
 
     # PART 2: select the submatrix and update D
+    """
+    For every well belonging to the subset (given by subset.wells[i_well]), we consider all outgoing edges
+    (given by D[subset.wells[i_well]][j_D]).
+    If the edge arrives at another subset well (given by subset.wells[current_well]), we select it into the subgraph,
+    i.e. we get its value into subD[i_well+1][current_well].
+    If the edge arrives into a well not in the subset, its cost in D must be updated to be 1.
+    """
     for i_well in range(0, sublen):
         current_well = 0
         for j_D in range(0, len(D)):
             if (j_D == subset.wells[current_well]):
-                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D]  # select edges into the submatrix
+                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D] # selecting the edge
                 if (current_well < sublen - 1):
                     current_well += 1
             else:
-                D[subset.wells[i_well]][j_D] = 1  # update D: edges leaving the subset's subgraph now have cost 1
+                D[subset.wells[i_well]][j_D] = 1  # updating D
 
     # PART 3: solve TSP for the subset
 
@@ -170,7 +177,7 @@ def main():
          ['p1', 'r3', 'c2', 't2'],
          ['p2', 'r3', 'c1', 't1']]
 
-    #w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing)
     ss=[]
@@ -193,7 +200,7 @@ def main():
     time1 = time.time()
 
     # Call the solver. Input empty file name to have w as input, empty w to use a json file as input
-    tsp_method(w, fin, reord='sametogether', caps=caps)
+    tsp_method(w, fin, reord=None, caps=caps)
 
     dispoper(fin)
 
