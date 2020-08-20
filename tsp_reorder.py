@@ -10,7 +10,7 @@ from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
 
 
-# ------------------CLASS DEFINITIONS---------------
+# --------------------------------CLASS DEFINITIONS---------------------------------
 # needed for the sametogether reordering
 class Sametogether:
     def __init__(self, parttype):
@@ -19,70 +19,73 @@ class Sametogether:
         self.outgoing = 0
 
 
+# Each part matched with the wells it is added to
 class Ss:
-    def __init__(self, part, wellno):  # initialisation
+    # initialisation
+    def __init__(self, part, wellno):
         self.part = part
         self.wells = [wellno]
 
-    def nuwell(self, wellno):  # record new well in the subset
+    # record new well in the subset
+    def nuwell(self, wellno):
         self.wells.append(wellno)
 
-    def __str__(self):  # for printing the subset's part type and wells out
+    # for printing the subset's part type and wells
+    def __str__(self):
         strRep = self.part + '|'
         for i in range(0, len(self.wells)):
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
 
 
-# Final output format is an array of Operations - will be the same for ALL methods
+# Final output format is an array of Operations - the same for ALL methods
 class Oper:
+    # initialisation
     def __init__(self, part, well):
         self.part = part
         self.well = well
+        self.changed = False
 
-    def __str__(self):  # for printing the subset's part type and wells out
+    # for printing the part type and destination well
+    def __str__(self):
         strRep = self.part + ' -> w' + str(self.well)
         return strRep
 
 
-# ------------------MAIN (only for function testing)---------------
-def main():
-    D = np.zeros((3, 3))
-    subset = Ss('p1', 1)
-    subset.wells.append(2)
-    print(Dupdate(D, subset))
-    print(D)
-
-
-# -------------SIMPLE REORDERINGS----------------
-# totalwells is the total number of wells in the input
+# -------------------------------SIMPLE REORDERINGS----------------------------------
+# leastout reordering: subsets with the least number of outgoing edges go first
 def leastout(subsets, w):
     # get length of w
     totalwells=len(w)
+
     # determine the number of outgoing edges for each subset
     for i in range(0, len(subsets)):
         subsets[i].outgoing = len(subsets[i].wells) * (totalwells - len(subsets[i].wells))
 
-    # sort the list
+    # sort the list putting the
     subsets.sort(key=lambda subsets: subsets.outgoing)
 
 
+# sametogether reordering: group subsets by part type, then sort by leastout
 def sametogether(subsets, w):
-    # get dimensions of w
+    # PART 1: initial preparations
+
+    # PART 1.1: get dimensions of w, i.e. total number of wells and total number of part types
     totalwells = len(w)
     if(totalwells!=0):
         totaltypes = len(w[0])
     else:
         totaltypes=0
 
-    # intialise the lists of same-type part subsets
+    # PART 1.2: initialise the lists of same-type part subsets
     together=[]
     for i in range(0,totaltypes):
         together.append(Sametogether(w[0][i][0]))
 
-    # distribute the subsets among the lists, calculate the total number of outgoing edges for each list
+
+    # PART 2: distribute the subsets among the lists, calculating the total number of outgoing edges for each list
     for i in range(0, len(subsets)):
-        # find into which list we put it
+        # find into which list the subset should be put
         for position in range(0, totaltypes):
             if (subsets[i].part[0] == together[position].parttype):
                 break
@@ -91,12 +94,13 @@ def sametogether(subsets, w):
         together[position].outgoing += len(subsets[i].wells) * (totalwells - len(
             subsets[i].wells))  # update number of outgoing edges (for further OPTIONAL sorting)
 
-    # sort the lists by the number of outgoing edges (OPTIONAL)
+    # PART 3: sort the lists by the number of outgoing edges
     together.sort(key=lambda together: together.outgoing)
 
-    # record the rearranged subsets
-    inlist = 0  # counter within one of the lists
+
+    # PART 4: record the rearranged subsets
     whichlist = 0  # which of the lists is current
+    inlist = 0  # counter within the current list
     for i in range(0, len(subsets)):
         subsets[i] = together[whichlist].subs[inlist]
         inlist += 1
@@ -105,171 +109,159 @@ def sametogether(subsets, w):
             inlist = 0
 
 
-# -------------STATE-SPACE REORDERINGS----------------
-# nns
+# ------------------------------TREE SEARCH REORDERINGS------------------------------
+# Nearest Neighbour tree search; the depth argument determines search depth
 def reorder_nns(origsubs, subsets, D, depth,caps):
-    # set maximum optimisation time for more than default, so that tree search is faster
+    # PART 1: initial preparations
+    # set maximum optimisation time for the cost function
     global maxtime
     maxtime=0.1
 
-    all_operations = len(origsubs)
+    # get the total number of subsets
+    all_subsets = len(origsubs)
 
+
+    # PART 2: reorder the subsets
+
+    # PART 2.1: the first subset
     subsets.append(origsubs[0])
     origsubs.pop(0)
     Dupdate(D, subsets[-1])
 
-    while (len(subsets) < all_operations):
-        # print(len(subsets))
+    # PART 2.2: all other subsets
+    while (len(subsets) < all_subsets):
+        # get next subset
+        nextsub = reorder_nns_oneiter(origsubs, subsets, D.copy(), 1, depth, caps)
 
-        nextop = reorder_nns_oneiter(origsubs, subsets, D.copy(), 1, depth,caps)
-        subsets.append(origsubs[nextop])
-        origsubs.pop(nextop)
-        Dupdate(D, subsets[-1])
+        subsets.append(origsubs[nextsub]) # record next subset
+        origsubs.pop(nextsub) # remove next subset from the list of unvisited subsets
+        Dupdate(D, subsets[-1]) # update D
 
 
-def reorder_nns_oneiter(origsubs, subsets, D, curdepth, depth,caps):
-    # determine the potential cost of each possible operation
-    potcost = []
+# single iteration of NNs
+def reorder_nns_oneiter(origsubs, subsets, D, curdepth, depth, caps):
+    # PART 1: determine the potential cost of each possible operation
+    potcost = [] # initialise list of potential costs
     for i in range(0, len(origsubs)):
+        # get cost of choosing this susbset
         potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].part]))
-        # next iteration
-        werenew = Dupdate(D, origsubs[i])
+        # go deeper (if needed)
         if (curdepth < depth and len(origsubs) != 1):
-            # change the inputs for next iteration
+            # change D and inputs as if the current subset was chosen
+            werenew = Dupdate(D, origsubs[i])
             subsets.append(origsubs[i])
             origsubs.pop(i)
 
-            # call next iteration
+            # call the single-iteration function
             potcost[i] += reorder_nns_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
 
             # change the inputs back
             origsubs.insert(i, subsets[-1])
             subsets.pop()
-        Drollback(D, werenew)
+            Drollback(D, werenew)
 
-    # act according to the determined costs
+    # PART 2: act according to the determined costs
+    # if the current depth is 1, return the entry with the least potential cost
     if (curdepth == 1):
         answer = potcost.index(min(potcost))
+    # if current depth is greater, return the minimum potential cost to add to current subset's potential cost
     else:
         answer = min(potcost)
 
     return answer
 
 
-# greedy algorithm
+# Greedy search; the heur argument determines which heuristic is used
 def reorder_greedy(origsubs, subsets, D, heur, caps):
-    # set maximum optimisation time for more than default, so that tree search is faster
+    # PART 1: initial preparations
+    # set maximum optimisation time for the cost function
     global maxtime
     maxtime = 0.1
 
-    all_operations = len(origsubs)
+    # get the total number of subsets
+    all_subsets = len(origsubs)
 
+
+    # PART 2: reorder the subsets
+
+    # PART 2.1: the first subset
     subsets.append(origsubs[0])
     origsubs.pop(0)
     Dupdate(D, subsets[0])
 
-    while (len(subsets) < all_operations):
-        #print(len(subsets))
-
+    # PART 2.2: all other subsets
+    while (len(subsets) < all_subsets):
+        # get next subset
         nextop = reorder_greedy_onestep(origsubs, subsets, D, heur,caps)
-        subsets.append(origsubs[nextop])
-        origsubs.pop(nextop)
-        Dupdate(D, subsets[-1])
+
+        subsets.append(origsubs[nextop]) # record next subset
+        origsubs.pop(nextop) # remove next subset from the list of unvisited subsets
+        Dupdate(D, subsets[-1]) # update D
 
 
+# single step of greedy search
 def reorder_greedy_onestep(origsubs, subsets, D, heur,caps):
-    # determine the potential cost of each possible operation
-    potcost = []
+    # PART 1: determine the potential cost+heuristic of each possible operation
+    potcost = [] # intialise the list of potetntial values
     for i in range(0, len(origsubs)):
-        # cost function component
+        # PART 1.1: cost function component
         potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].part]))
 
-        # heuristic component
+        # PART 1.2: heuristic component
+        # pretend the current subset is included in the route (D NOT updated! As some heuristics MIGHT need unupdated D)
         subsets.append(origsubs[i])
         origsubs.pop(i)
-        #print(h_tree(subsets, origsubs, D.copy(), heur))  # TEST ONLY
+
+        # get the heuristic value
         potcost[-1] += h_tree(subsets, origsubs, D.copy(), heur)
+
+        # undo including the current subset into the route
         origsubs.insert(i, subsets[-1])
         subsets.pop()
 
+    # PART 2: return the index of subset with the minimal cost+heuristic
     return potcost.index(min(potcost))
 
-"""
-# a star
-def reorder_a_star(origsubs, subsets, D, heur):
-    alloperations = len(origsubs)
+# heursiric function
+# complete = subsets currently in route, remaining = subsets not in route
+def h_tree(inroute, remaining, D, heur):
+    # countall: h is the sum of all edge costs multiplied by the number of iterations left
+    if (heur == 'countall'):
+        Dupdate(D, inroute[-1]) # update D for current subset (as it was not updated before)
 
-    # if we want to randomise the operation order
-    # np.random.shuffle(ops)
-
-    # starting position - state with no operations performed
-    states = [[]]  # list of states in state-space under consideration
-    unstates = [origsubs]  # list of parts NOT added for a given state
-    g = [0]  # distance from origin, mirrors states
-    h = [0]  # heuristic function values
-    f = [0]  # f(states[i])=g(states[i])+h(states[i]), mirrors states
-    l = [0]
-    d = [D.copy()]
-
-    while (len(states) != 0):
-        consider = f.index(min(f))
-
-        # TEST ONLY
-        #if (len(states[consider]) != 0):
-            #print(str(len(states)) + ' ' + str(h[consider]) + ' ' + str(max(l)))
-
-        #print(consider)
-        if (len(states[consider]) == alloperations):
-            for s in states[consider]:
-                subsets.append(s)
-            break
-
-        # add neighbours to considered states
-        for i in range(0, len(unstates[consider])):
-            states.append(states[consider] + [unstates[consider][i]])
-            d.append(D.copy())
-            unstates.append(unstates[consider][0:i] + unstates[consider][i + 1:len(unstates[consider])])
-            g.append(g[consider] + solveforcost(unstates[consider][i], d[-1],cap))
-            h.append(h_tree(states[-1], unstates[-1], d[-1], heur))
-            f.append(g[-1] + h[-1])
-            Dupdate(d[-1], states[-1][-1])
-            l.append(len(states[-1]))  # TEST ONLY
-
-        # remove the state in question
-        states.pop(consider)
-        unstates.pop(consider)
-        g.pop(consider)
-        f.pop(consider)
-        d.pop(consider)
-        l.pop(consider)  # TEST ONLY
-"""
-
-def h_tree(complete, todo, D, heur):
-    wt = 1  # weighing factor on the whole heuristic
-    if (heur == 'countall'):  # h is the sum of all nonzero edges multiplied by the number of iterations left
-        k = 1  # weighting factor of tally vs the amount left
-        Dupdate(D, complete[-1])
+        # some all edge costs
         tally = 0
         for i in range(0, len(D)):
             for j in range(0, len(D)):
                 if (i != j):
                     tally += D[i][j]
-        answer = wt * ((tally ** k) * len(todo))# ** (1 / (k + 1))
-        return answer
-    elif (heur == 'leastout'):  # works analogically to the leastout sorting
-        k = 2
-        l = len(Dupdate(D, complete[-1]))
-        answer = wt * ((l ** k) * len(todo)) ** (1 / (k + 1))
+
+        # calculate the value of h
+        answer = tally * len(remaining)
         return answer
 
-    return 0
+    # leastout: h is the k-power average of the number of newly created cost 1 edges and the number of remaining subsets
+    # NOT USED!
+    elif (heur == 'leastout'):
+        k = 2 # define the k
+        l = len(Dupdate(D, inroute[-1])) # get number of newly created cost 1 edges
+
+        # calculate the value of h
+        answer = ((l ** k) * len(remaining)) ** (1 / (k + 1))
+        return answer
 
 
-# -----------STATE-SPACE auxiliaries--------------
+# ----------------------------AUXILIARIES FOR TREE SEARCH---------------------------
 # update D according to the subset
 def Dupdate(D, subset):
-    werenew = []
-    sublen = len(subset.wells)
+    werenew = [] # created the list of altered edges
+    sublen = len(subset.wells) # get subgraph length to avoid calling len too often
+
+    """
+    For every well belonging to the subset (given by subset.wells[i_well]), we consider all outgoing edges
+    (given by D[subset.wells[i_well]][j_D]).
+    If the edge arrives to a well not in the subset, its cost in D must be updated to be 1 (if it wasn't 1 already).
+    """
     for i_well in range(0, sublen):
         current_well = 0
         for j_D in range(0, len(D)):
@@ -278,9 +270,10 @@ def Dupdate(D, subset):
                     current_well += 1
             else:
                 if (D[subset.wells[i_well]][j_D] != 1):
-                    D[subset.wells[i_well]][
-                        j_D] = 1  # make the edge going from the subset into the rest of D equal to one (updating D)
-                    werenew.append([subset.wells[i_well], j_D])
+                    D[subset.wells[i_well]][j_D] = 1
+                    werenew.append([subset.wells[i_well], j_D]) # record which edge's cost was altered
+
+    # return the list of all altered edges
     return werenew
 
 
@@ -297,36 +290,62 @@ def solveforcost(subset, D, cap):
     sublen = len(subset.wells)
 
     # initialise the subset's matrix subD
-    subD = np.zeros((sublen + 1,
-                     sublen + 1))  # vertex 0, all edges to and from it being zero, allows to use cyclic TSP soluction for our PATH problem
+    subD = np.zeros((sublen + 1, sublen + 1))  # an extra 0 node is needed for the non-capacitated version
 
     # PART 2: select submatrix and update D as if problem for the subset is already solved
+    """
+    For every well belonging to the subset (given by subset.wells[i_well]), we consider all outgoing edges
+    (given by D[subset.wells[i_well]][j_D]).
+    If the edge arrives at another subset well (given by subset.wells[current_well]), we select it into the subgraph,
+    i.e. we write its cost into subD[i_well+1][current_well].
+    """
     for i_well in range(0, sublen):
         current_well = 0
         for j_D in range(0, len(D)):
             if (j_D == subset.wells[current_well]):
-                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D]  # select the edges within the subset into the submatrix
+                subD[i_well + 1][current_well + 1] = D[subset.wells[i_well]][j_D]
                 if (current_well < sublen - 1):
                     current_well += 1
 
     # PART 3: solve TSP for the subset and record costs
+    # load tspy package
     tsp = TSP()
     tsp.read_mat(subD)
 
-    # solve with tspy if capacity is not aacounted for
-    if(cap==None):
-        two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
-        tour = tsp.get_approx_solution(two_opt)
-        cost = get_cost(tour, tsp)
-    else:
-        chains = lp_cap(subD,cap,maxtime)
+    # 3a): capacitated problem
+    if (cap!=None):
+        # get the chain coverage
+        if (len(subD) == 2):
+            chains = [[1]]
+        else:
+            chains = lp_cap(subD, cap, maxtime)
+
+        # sum costs of all chains, which are obtained using the tspy package
         cost = 0
         for chain in chains:
-            cost += get_cost(chain,tsp)
+            cost += get_cost(chain, tsp)
 
-    return cost  # include the tour cost in the number of tip changes
+    # 3b): non-capacitated problem, uses the tspy package
+    else:
+        # get the TSP tour using the tspy package
+        two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
+        tour = tsp.get_approx_solution(two_opt)
+
+        # get cost of the tour
+        cost = get_cost(tour, tsp)
+
+    # PART 4: return the cost
+    return cost
 
 
-# -------------------------------MAIN CALL-------------------------------
+# ------------------------------MAIN (TESTING ONLY)--------------------------------
+def main():
+    D = np.zeros((3, 3))
+    subset = Ss('p1', 1)
+    subset.wells.append(2)
+    print(Dupdate(D, subset))
+    print(D)
+
+
 if __name__ == "__main__":
     main()
