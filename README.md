@@ -1,6 +1,6 @@
 # pipette_opt
 
-Latest change: 10 August 2020 - 
+Latest change: 20 August 2020
 
 The algorithms do work in a situation where every vector has its own required volume, while the pipette capacity is limited.
 Any munber of vector types is supported
@@ -11,7 +11,7 @@ The tsp_method program implements the LP-based algorithm, whose non-capacitated 
 The linear programming problem that is currently solved instead of the TSP is given in detail in the 'CapacityAndTSPmethod' document.
 
 The tsp_reorder program contains the reordering algorithms that can be performed to improve the preformance of tsp_method.
-It has simple and state-space reorderings.
+It has simple and state-space reorderings, explained in the 'Reorderings' document.
 
 The tsp_lp_solver program implements linear programming solvers needed for the tsp-based methods.
 tsp_lp_gurobi solves the TSP (for non-capacitated problem).
@@ -23,9 +23,11 @@ Currently, it contains two kinds of iddfs solver and greedy solver. Monte-Carlo 
 The input_generator program contains fucntions that create random inputs used for algorithm testing.
 
 The auxil program contains auxiliary functions used by BOTH methods.
-Currently, it has a display function, pipette capacity calculator, as well as route/single operation cost functions of two different kinds.
+Currently, it has a display function, pipette capacity calculator, as well as route and single operation cost functions.
 There are also pipette capacity calculator functions. To ignore capacity, give caps=None.
-Only cost functions 'with_w' are used as the other kind is too slow - and only 'with_w' supports capacity limitations.
+
+The pipette_opt program contains API-like functions that allow to integrate the algorithms into the dna_assembler and DNABOT assembly pipelines.
+(WORK IN PROGRESS)
 
 ***
 Development purposes only
