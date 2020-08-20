@@ -30,7 +30,7 @@ class Oper:
     def __init__(self, part, well):
         self.part = part
         self.well = well
-        self.changed = False
+        self.changed = False # is True if this operation involves a tip change
 
     # for printing the part type and destination well
     def __str__(self):
@@ -75,12 +75,12 @@ def route_cost_with_w(fin,w,caps):
     # get addresses of part types in w
     address = addrfromw(w)
 
-    # reset the tip change indicators (Oper.change is True if this operation involves a tip change)
+    # reset the tip change indicators
     for i in range(0, len(fin)):
         fin[i].changed = False
 
     # create the array added (tells which parts were added to which well)
-    added = np.zeros((len(w), len(w[0])),dtype=bool) # added[i][j]==True if part on position j in well i has been added
+    added = np.zeros((len(w), len(w[0])),dtype=bool) # added[i][j]==True if part at address j in well i has been added
 
 
     # PART 2: get the cost

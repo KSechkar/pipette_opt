@@ -145,14 +145,14 @@ def reorder_nns_oneiter(origsubs, subsets, D, curdepth, depth, caps):
     for i in range(0, len(origsubs)):
         # get cost of choosing this susbset
         potcost.append(solveforcost(origsubs[i], D,caps[origsubs[i].part]))
-        # go deeper (if needed)
+        # go deeper (if needed and possible)
         if (curdepth < depth and len(origsubs) != 1):
             # change D and inputs as if the current subset was chosen
             werenew = Dupdate(D, origsubs[i])
             subsets.append(origsubs[i])
             origsubs.pop(i)
 
-            # call the single-iteration function
+            # call the single-iteration function again
             potcost[i] += reorder_nns_oneiter(origsubs, subsets, D, curdepth + 1, depth,caps)
 
             # change the inputs back
@@ -229,7 +229,7 @@ def h_tree(inroute, remaining, D, heur):
     if (heur == 'countall'):
         Dupdate(D, inroute[-1]) # update D for current subset (as it was not updated before)
 
-        # some all edge costs
+        # sum all edge costs
         tally = 0
         for i in range(0, len(D)):
             for j in range(0, len(D)):
