@@ -4,15 +4,13 @@
 # Sort of like an API
 # v0.0.1, 10.8.2020
 
-import pickle
-import tkinter as tk
-from tkinter import messagebox as msgb
-from itertools import product
 from opentrons import instruments, labware
 
 from auxil import *
 from tsp_method import tsp_method
 from statespace_methods import nns, greedy_tree
+
+from vis_cont import rec
 
 """
 THE START-STOP ASSEMBLY CAN NOW BENEFIT FROM THE PIPETTE TIP OPTIMISATION ALGORITHMS!
@@ -107,202 +105,6 @@ class Ss:
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
 
-# FOR VISUALISATION
-class Vis(tk.Frame):
-    def __init__(self,assem):
-        self.assembly = assem
-        super().__init__()
-        self.initUI()
-
-    def initUI(self):
-
-        self.master.title("Construct contamination")
-        self.pack(fill=tk.BOTH, expand=1)
-
-        self.canvas = tk.Canvas(self)
-        self.mode = 'initial'
-        self.coord_w = {(i, j): -1 for i, j in product(range(1, 9), range(1, 13))}
-        self.rows = 'ABCDEFGH'
-        self.rowcoords = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8}
-        self.defx_tl = 30
-        self.defy_tl = 30
-        self.xside = 115
-        self.yside = 10 * len(visw[0]) + 20
-        self.interval = 10
-        
-        self.basicpaint()
-
-        self.mode = 'general'
-
-    def basicpaint(self):
-        self.canvas.delete("all")
-
-        if(self.mode!='clicked'):
-            self.bold = []
-            empty1 = []
-            for i in range(0,len(visw[0])):
-                empty1.append(False)
-            for i in range(0,len(visw)):
-                self.bold.append(empty1.copy())
-
-        for i in range(1, 9):
-            for j in range(1, 13):
-                y_tl = self.defy_tl + (i - 1) * (self.yside + self.interval)
-                x_tl = self.defx_tl + (j - 1) * (self.xside + self.interval)
-                self.canvas.create_rectangle(x_tl, y_tl, x_tl + self.xside, y_tl + self.yside,
-                                             outline="#000")
-
-        # label self.rows and columns
-        for i in range(1, 9):
-            y_tl = self.defy_tl + self.yside / 2 + (i - 1) * (self.yside + self.interval)
-            self.canvas.create_text(5, y_tl, anchor=tk.W, font="Verdana",
-                                    text=self.rows[i - 1])
-        for j in range(1, 13):
-            x_tl = self.defx_tl + self.xside / 3 + (j - 1) * (self.xside + self.interval)
-            self.canvas.create_text(x_tl, 10, anchor=tk.W, font="Verdana",
-                                    text=str(j))
-        self.canvas.pack(fill=tk.BOTH, expand=1)
-
-        # display constructs
-        for i in range(0, len(visw)):
-            con = visdic['constructs'][i]
-            if (self.assembly=='Start-Stop'):
-                precoord = con['con_liqloc'][0].display_name
-            elif(self.assembly=='BASIC'):
-                precoord = con['con_liqloc']
-
-            y_coord = self.rowcoords[precoord[0]]
-            x_coord = int(precoord[1:])
-
-            y_tl = self.defy_tl + (y_coord - 1) * (self.yside + self.interval)
-            x_tl = self.defx_tl + (x_coord - 1) * (self.xside + self.interval)
-            self.canvas.create_text(x_tl + 2, y_tl + 10, anchor=tk.W, font=("Verdana", 6),
-                                    text=con['con_name'])
-            for j in range(0, len(visw[i])):
-                part_name = visdic['parts'][visw[i][j]]['part_name']
-                if(self.bold[i][j] == True):
-                    self.canvas.create_text(x_tl + 20, y_tl + 20 + j * 10, anchor=tk.W, font=('Verdana', 6,'bold'),
-                                            text=part_name, )
-                else:
-                    self.canvas.create_text(x_tl + 20, y_tl + 20 + j * 10, anchor=tk.W, font=('Verdana', 6),
-                                            text=part_name, )
-
-            if (self.mode == 'initial'):
-                self.coord_w[(x_coord, y_coord)] = i
-            elif (self.mode == 'clicked'):
-                if (self.select == i):
-                    self.canvas.create_rectangle(x_tl, y_tl, x_tl + self.xside, y_tl + self.yside, outline="#f00")
-        # if(self.mode == 'initial')
-            # self.tutorial()
-
-
-    def click(self,event):
-        n = self.clickedwell(event.x,event.y)
-        if(n!=-1):
-            self.mode = 'clicked'
-            self.bold_cont(n)
-            self.select = n
-            self.basicpaint()
-
-    def bold_cont(self, n):
-        self.bold = []
-        empty1 = []
-        for i in range(0, len(visw[0])):
-            empty1.append(False)
-        for i in range(0, len(visw)):
-            self.bold.append(empty1.copy())
-
-        # reset the tip change indicators in case of previous corruption
-
-        for i in range(0, len(visfin)):
-            visfin[i].changed = False
-
-        added = np.zeros((len(visw), len(visw[0])))  # tells which parts were added to which well
-
-        # get addresses of part types in w
-        address = addrfromw(visw)
-
-        # for the first operation in fin
-        cost = 1
-        visfin[0].changed = True
-        added[visfin[0].well][address[visfin[0].part[0]]] = 1
-        for i in range(1, len(visfin)):
-            one_cost = cost_func_with_w(visfin[0:i], visfin[i], visw, added, viscaps)
-            if (one_cost == 1):
-                visfin[i].changed = True
-            added[visfin[i].well][address[visfin[i].part[0]]] = 1
-
-            if (visfin[i].well == n and visfin[i].changed != True):
-                backroll = 1
-                while (True):
-                    previ = i - backroll
-                    for j in range(0, len(visw[visfin[previ].well])):
-                        if (added[visfin[previ].well][j] == 1):
-                            self.bold[visfin[previ].well][j] = True
-                    if (visfin[previ].changed == 1):
-                        break
-                    else:
-                        backroll += 1
-
-        # reset the tip change indicators
-        for i in range(0, len(visfin)):
-            visfin[i].changed = False
-
-        
-    def clickedwell(self,x,y):
-        x -= 25
-        y -= 25
-        x_coord=int(np.ceil(x/(self.xside+self.interval)))
-        y_coord=int(np.ceil(y/(self.yside+self.interval)))
-        return self.coord_w[(x_coord,y_coord)]
-
-    def unclick(self,event):
-        self.mode='general'
-        self.basicpaint()
-
-    def examine(self,event):
-        n = self.clickedwell(event.x, event.y)
-
-        title = 'Construct ' + visdic['constructs'][n]['con_name']
-
-        # for Start-Stop Assembly, we exactly know the part types
-        if(self.assembly=='Start-Stop'):
-            part_type = ['Promoter: ', 'RBS: ', 'CDS: ','Terminator: ','Backbone: ']
-        # otherwise, create generic insert names
-        else:
-            part_type = ['Insert 1: ']
-            for i in range(1,len(visw[n])):
-                part_type += ['Insert '+str(i+1)+': ']
-        message = ''
-        if(self.mode!='clicked'):
-            for i in range(0,len(visw[n])):
-                message += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
-                message += '                                    \n'
-        else:
-            if(n!=self.select):
-                present = 'Parts present before tip proceeded to selected well:\n'
-                notpresent = 'Parts not present before tip proceeded to selected well:\n'
-                for i in range(0,len(visw[n])):
-                    if(self.bold[n][i]==True):
-                        present += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
-                        present += '\n'
-                    else:
-                        notpresent += part_type[i] + visdic['parts'][visw[n][i]]['part_name']
-                        notpresent += '\n'
-                message = present + '\n' + notpresent
-            else:
-                message = 'This is the well whose predecessors are displayed'
-
-        msgb.showinfo(title=title, message=message)
-
-    def tutorial(self):
-        title = 'Welcome to contamination viewer'
-        message = 'Left-click a well with construct to check which wells were visited befroe it\n'
-        message += 'and which parts were present in these wells then\n\n'
-        message += 'Middle-click anywhere to return to general view\n\n'
-        message += 'Right-click a well to inspect it in detail'
-        msgb.showinfo(title=title, message=message)
-        
 
 # ---------------------START-STOP ASSEMBLY---------------------
 # Modified LevelZeroAssembler.do_assembly() function
@@ -479,11 +281,17 @@ def startstop_distribute_dna(assembly, pipette):
 
         # PART 2 Get new tip
         pipette.pick_up_tip()
-        
+
         # PART 3 Aspirate
-        for i in range(0,len(destination_wells)-1):
-            pipette.aspirate(volume, source_well).air_gap(air_gap)
-        pipette.aspirate(volume,source_well)
+        # 3a) with air gaps
+        if (air_gap != 0):
+            for i in range(0, len(destination_wells) - 1):
+                pipette.aspirate(volume, source_well)
+                pipette.air_gap(air_gap)
+            pipette.aspirate(volume, source_well)
+        # 3b) no air gaps
+        else:
+            pipette.aspirate(volume * len(destination_wells), source_well)
 
         # PART 4 Distribute
         for i in range(0,len(destination_wells)-1):
@@ -493,12 +301,40 @@ def startstop_distribute_dna(assembly, pipette):
         # PART 4 Drop used tip
         pipette.drop_tip()
 
-    vis()
     return
 
 
 # ---------------------BASIC ASSEMBLY---------------------------
-def basic_part_transfer_actions(method,final_assembly_dict, part_vol, pipette):
+def basic_part_transfer_actions(method, final_assembly_dict, part_vol, pipette):
+    # PART 1: Group all the constructs by lengths
+    assembly_dict_by_lens={}
+    for key in final_assembly_dict.keys():
+        # check if such length is already present
+        match = False
+        final_len = len(final_assembly_dict[key])
+        for key_by_lens in assembly_dict_by_lens.keys():
+            if(final_len == key_by_lens):
+                match = True
+                break
+
+        # if yes, add
+        if(match):
+            assembly_dict_by_lens[key_by_lens][key] = final_assembly_dict[key]
+        # if no, create a new entry with this length and this construct standing for it
+        else:
+            assembly_dict_by_lens[final_len] = {key: final_assembly_dict[key]}
+
+    # PART 2: Make the action list
+    # initialise
+    action_list = tuple()
+    # add actions for each group of subsets
+    for one_dict in assembly_dict_by_lens.values():
+        action_list += basic_part_transfer_actions_onelen(method, one_dict, part_vol, pipette)
+
+    return action_list
+
+
+def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette):
     # PART 1 Convert data into internal format
 
     # PART 1.1 Empty objects to fill
@@ -574,9 +410,9 @@ def basic_part_transfer_actions(method,final_assembly_dict, part_vol, pipette):
     # PART 2.1 call algorithm specified by method
     if (method[0:2] == 'LP'):  # LP-based
         if (len(method) == 2):
-            tsp_method(w, fin, reord=None, filename=None, caps=caps)
+            tsp_method(w, fin, reord=None, caps=caps)
         else:
-            tsp_method(w, fin, method[3:], filename=None, caps=caps)
+            tsp_method(w, fin, method[3:], caps=caps)
     else:  # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -586,7 +422,7 @@ def basic_part_transfer_actions(method,final_assembly_dict, part_vol, pipette):
         # get solution
         if (method[:7] == 'Nearest'):
             nns(w, fin, 1, reord, caps)
-        elif (method[:5] == 'iddfs'):
+        elif (method[:3] == 'nns'):
             nns(w, fin, 2, reord, caps)
         elif (method[:6] == 'Greedy'):
             greedy_tree(w, fin, 'optimistic+cap', reord, caps)
@@ -643,7 +479,7 @@ def basic_part_transfer_actions(method,final_assembly_dict, part_vol, pipette):
     return action_list
 
 
-def basic_execute(action_list,pipette,magbead_plate,destination_plate):
+def basic_execute(action_list, pipette, magbead_plate, destination_plate):
     for action in action_list:
         # PART 1 Get directions
         source_well, destination_wells, volume, new_tip, air_gap = action
@@ -652,9 +488,16 @@ def basic_execute(action_list,pipette,magbead_plate,destination_plate):
         pipette.pick_up_tip()
 
         # PART 3 Aspirate
-        for i in range(0, len(destination_wells) - 1):
-            pipette.aspirate(volume, magbead_plate.wells(source_well)).air_gap(air_gap)
-        pipette.aspirate(volume, magbead_plate.wells(source_well))
+        # 3a) with air gaps
+        if(air_gap != 0):
+            for i in range(0, len(destination_wells) - 1):
+                pipette.aspirate(volume, magbead_plate.wells(source_well))
+                pipette.air_gap(air_gap)
+            pipette.aspirate(volume, magbead_plate.wells(source_well))
+        # 3b) no air gaps
+        else:
+            pipette.aspirate(volume*len(destination_wells),magbead_plate.wells(source_well))
+
 
         # PART 4 Distribute
         for i in range(0, len(destination_wells) - 1):
@@ -665,42 +508,6 @@ def basic_execute(action_list,pipette,magbead_plate,destination_plate):
         pipette.drop_tip()
 
     return
-
-
-# ---------------------RECORD AND VISUALISE---------------------
-def rec(assem,w,fin,dic,caps):
-    recording={'assembly': assem, 'w': w, 'fin': fin, 'dic': dic, 'caps': caps}
-    pickle.dump(recording, open('..\ppopt_recording.p', 'wb'))
-
-
-    return
-
-def vis():
-    rec = pickle.load(open('..\ppopt_recording.p', 'rb'))
-    global visfin, visdic, visw, viscaps
-    visw = rec['w']
-    visfin = rec['fin']
-    visdic = rec['dic']
-    viscaps = rec['caps']
-
-    # BASIC assembly does not have inherent names of parts or constructs stored,
-    # as parts are PREPARED IN SITU on a magnetic bead well plate.
-    # Thus we refer to these parts by their location on magbead plate only.
-    if(rec['assembly']=='BASIC'):
-        for part in visdic['parts'].values():
-            part['part_name'] = 'Magbead well ' + part['part_liqloc']
-        for construct in visdic['constructs'].values():
-            construct['con_name'] = 'Well ' + construct['con_liqloc']
-
-    root = tk.Tk()
-    vis = Vis(rec['assembly'])
-    root.geometry("1600x900")
-
-    root.bind("<Button-1>", vis.click)
-    root.bind("<Button-2>", vis.unclick)
-    root.bind("<Button-3>", vis.examine)
-
-    root.mainloop()
 
 
 # -------------------------- MAIN (TEST ONLY) -------------------------
@@ -720,7 +527,6 @@ def main():
 
     action_list = basic_part_transfer_actions('LP+sametogether',final_assembly_dict,1.5,pipette)
     #basic_execute(action_list,pipette,magbead_plate,destination_plate)
-    vis()
 
 if __name__ == "__main__":
     main()
