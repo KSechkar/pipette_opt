@@ -308,10 +308,6 @@ def solveforcost(subset, D, cap):
                     current_well += 1
 
     # PART 3: solve TSP for the subset and record costs
-    # load tspy package
-    tsp = TSP()
-    tsp.read_mat(subD)
-
     # 3a): capacitated problem
     if (cap!=None):
         # get the chain coverage
@@ -320,14 +316,14 @@ def solveforcost(subset, D, cap):
         else:
             chains = lp_cap(subD, cap, maxtime)
 
-        # sum costs of all chains, which are obtained using the tspy package
-        cost = 0
-        for chain in chains:
-            cost += get_cost(chain, tsp)
+        # the number of chains is the number of tips used
+        cost = len(chains)
 
     # 3b): non-capacitated problem, uses the tspy package
     else:
         # get the TSP tour using the tspy package
+        tsp = TSP()
+        tsp.read_mat(subD)
         two_opt = TwoOpt_solver(initial_tour='NN', iter_num=100)
         tour = tsp.get_approx_solution(two_opt)
 
