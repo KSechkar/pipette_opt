@@ -127,6 +127,10 @@ def startstop_do_assembly(assembly, destination_location_manager, dna_pipette, m
 
 # Creates an optimised action list
 def startstop_actionlist(assembly,method, pipette):
+    # PART 0: handle the vector backbones
+    backbone_action_list, ignorelist = startstop_handle_backbones(assembly,method, pipette)
+
+
     # PART 1 Convert data into internal format
 
     # PART 1.1 Empty objects to fill
@@ -136,7 +140,6 @@ def startstop_actionlist(assembly,method, pipette):
     reqvols ={} # list of required liquid volumes (needed for capacity)
 
     # PART 1.2 Declare auxiliary objects
-    ignorelist = [] # list of parts to be ignored
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
@@ -194,7 +197,7 @@ def startstop_actionlist(assembly,method, pipette):
         wellno += 1  # proceeding to next well
 
     # PART 1.4 Get capacities
-    air_gap=1
+    air_gap = 1
     caps = capacities(reqvols=reqvols, pipcap=pipette.max_volume, airgap=air_gap)
 
     # PART 2 Solve the problem
@@ -203,9 +206,9 @@ def startstop_actionlist(assembly,method, pipette):
     # PART 2.1 call algorithm specified by method
     if (method[0:2] == 'LP'): # LP-based
         if (len(method) == 2):
-            tsp_method(w, fin, reord=None, filename=None, caps=caps)
+            tsp_method(w, fin, reord=None, caps=caps)
         else:
-            tsp_method(w, fin, method[3:], filename=None, caps=caps)
+            tsp_method(w, fin, method[3:], caps=caps)
     else: # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -231,10 +234,9 @@ def startstop_actionlist(assembly,method, pipette):
 
     # PART 3 Convert internal-output operations into action list
 
-    # PART 3.1 Initialise action list, define unchanging parameters
-    action_list = tuple()
-    new_tip='once'
-
+    # PART 3.1 Initialise action list with the output of backbone handler, define unchanging parameters
+    action_list = backbone_action_list
+    new_tip = 'once'
 
     # PART 3.2 Define auxiliary variables
     added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
@@ -245,7 +247,7 @@ def startstop_actionlist(assembly,method, pipette):
     fin[0].changed = True
     part_source=dic['parts'][fin[0].part]['part_liqloc']
     part_vol = reqvols[fin[0].part]
-    part_dest = dic['constructs'][fin[0].well]['con_liqloc']
+    part_dest = dic['constructs'][fin[0].well]['con_liqloc'].copy()
 
     # PART 3.4 All later operations
     for i in range(1, len(fin)):
@@ -257,7 +259,8 @@ def startstop_actionlist(assembly,method, pipette):
 
         # act accroding to cost
         if(cost==0): # if 0, tip is unchanged
-            part_dest = dic['constructs'][fin[i].well]['con_liqloc'] + part_dest # mind that we add at the beginning
+            part_dest += dic['constructs'][fin[i].well]['con_liqloc']
+
         else: # if 1, there is new tip, so...
             # record last tip's actions
             action_list+=((part_source,part_dest,part_vol,new_tip,air_gap),)
@@ -265,7 +268,7 @@ def startstop_actionlist(assembly,method, pipette):
             # start recording new tip details
             part_source = dic['parts'][fin[i].part]['part_liqloc']
             part_vol = reqvols[fin[i].part]
-            part_dest = dic['constructs'][fin[i].well]['con_liqloc']
+            part_dest = dic['constructs'][fin[i].well]['con_liqloc'].copy()
 
         # if this is the end, just record last tip's actions
         if(i == len(fin)-1):
@@ -302,6 +305,69 @@ def startstop_distribute_dna(assembly, pipette):
         pipette.drop_tip()
 
     return
+
+
+# handling the backbone vectors
+def startstop_handle_backbones(assembly,method, pipette):
+    """
+    - In the overwhelming majority of cases, the vector backbones are all the same, so it's most efficient not
+    to handle them as a DNA part but just distribute them prior to all parts.
+    The returned backbone_action_list will go before all other actions, so the backbones are distributed before
+    everything else. The returned ignorelist will make the algorithms ignore the backbones when reading the inputs
+
+    - In the unlikely event that there are different backbones, they can just be condidered DNA parts. The returned
+    EMPTY backbone_action_list and ignorelist will ensure that.
+    """
+    # PART 1: initial preparations
+
+    # PART 1.1: initialise output lists
+    backbone_action_list = tuple() # pipette actions to distribute tha backbones
+    ignorelist = [] # will make the algorithms ignore backbones later, if necessary
+
+    # PART 1.1: get the list of constructs
+    constructs = assembly.current_constructs
+
+
+    # PART 2: determine if all backbones are the same
+    allsame = True
+    for i in range(1, len(constructs)):
+        if (constructs[i].plasmid['vector_backbone'].name != constructs[0].plasmid['vector_backbone'].name):
+            allsame = False
+            break
+
+    # PART 3: if yes, fill action and ignore lists
+    if (allsame):
+        # PART 3.1: update the ignore list
+        ignorelist.append('vector_backbone')
+
+        # PART 3.2: fill the action list
+        # PART 3.2.1: get variables common for all actions
+        bb = constructs[0].plasmid['vector_backbone']
+        bb_cap = capac(pipcap=pipette.max_volume, dose=bb.required_volume, airgap=0)
+        part_source = bb.liquid_location
+        part_vol = bb.required_volume
+        new_tip = 'once'
+        air_gap = 0
+
+        # PART 3.2.2: get destination of the first construct
+        part_dest = constructs[0].liquid_location.copy()
+
+        # PART 3.2.3: get all other destinations
+        for i in range(1, len(constructs)):
+            # if no need to change the tip, just add the well to destinations
+            if (((i % bb_cap) != 0)):
+                part_dest += constructs[i].liquid_location
+            # otherwise, put previous destinations into action list and start the new destination list
+            else:
+                backbone_action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
+                part_dest = constructs[i].liquid_location
+
+        # record the last actions that remain unrecorded
+        backbone_action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
+
+
+    # PART 4: return
+    return backbone_action_list, ignorelist
 
 
 # ---------------------BASIC ASSEMBLY---------------------------
@@ -450,7 +516,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     fin[0].changed = True
     part_source = dic['parts'][fin[0].part]['part_liqloc']
     part_vol = reqvols[fin[0].part]
-    part_dest = [dic['constructs'][fin[0].well]['con_liqloc']]
+    part_dest = [dic['constructs'][fin[0].well]['con_liqloc']].copy()
 
     # PART 3.4 All later operations
     for i in range(1, len(fin)):
@@ -462,7 +528,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
         # act accroding to cost
         if (cost == 0):  # if 0, tip is unchanged
-            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']] + part_dest  # mind that we add at the beginning
+            part_dest += [dic['constructs'][fin[i].well]['con_liqloc']]
         else:  # if 1, there is new tip, so...
             # record last tip's actions
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
@@ -470,7 +536,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
             # start recording new tip details
             part_source = dic['parts'][fin[i].part]['part_liqloc']
             part_vol = reqvols[fin[i].part]
-            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']]
+            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']].copy()
 
         # if this is the end, just record last tip's actions
         if (i == len(fin) - 1):
