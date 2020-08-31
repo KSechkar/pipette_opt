@@ -196,8 +196,12 @@ def h_tree(state, unstate, heur):
         ops_to_subsets(unstate,subsets)
         est_cost=0
         for subset in subsets:
-            est_cost+=1
-            est_cost+=round(len(subset.wells)/globcaps[subset.part])
+            # for the current part (subset), get the number of tips needed to deliver
+            est_cost += np.ceil(len(subset.wells)/globcaps[subset.part])
+
+            # if the current part (subset) is the same as last part added, assume the tip is kept from then
+            if(subset.part == state[-1].part):
+                est_cost -= 1
         return est_cost
 
 
@@ -273,10 +277,10 @@ def main():
     # nns(w, fin, 1, reord='sametogether', caps=caps)
 
     # use depth 2 NNS to solve the problem
-    nns(w, fin, 2, reord='sametogether', caps=caps)
+    # nns(w, fin, 2, reord='sametogether', caps=caps)
 
     # use greedy algorithm on a tree to solve the problem
-    # greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
+    greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
 
     dispoper(fin)
 
