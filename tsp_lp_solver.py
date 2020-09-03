@@ -152,10 +152,9 @@ def lp_cap(D, cap, maxtime):
         m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(nodes, 2))
         m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
 
-    # PART 2.3: 2-hop loop elimination
+    # PART 2.3: all edges selected into chains must be zero-length
     m.addConstr(
         gp.quicksum(vars[i, j] * dist[(i, j)] + vars[j, i] * dist[(j, i)] for i, j in combinations(nodes, 2)) == 0)
-
 
     # PART 3: optimise the model
     m.Params.TIME_LIMIT = mxt # set optimisation time limit
