@@ -72,6 +72,12 @@ class Vis(tk.Frame):
                 precoord = con['con_liqloc'][0].display_name
             elif (self.assembly == 'BASIC'):
                 precoord = con['con_liqloc']
+            elif (self.assembly == 'MoClo'):
+                well = con['con_liqloc']
+                for child in well.parent.children_by_name.keys():
+                    if (well.parent.children_by_name[child]._coordinates == well._coordinates):
+                        precoord = child
+                        break
 
             y_coord = self.rowcoords[precoord[0]]
             x_coord = int(precoord[1:])
@@ -170,9 +176,9 @@ class Vis(tk.Frame):
             part_type = ['Promoter: ', 'RBS: ', 'CDS: ', 'Terminator: ', 'Backbone: ']
         # otherwise, create generic insert names
         else:
-            part_type = ['Insert 1: ']
+            part_type = ['DNA Part 1: ']
             for i in range(1, len(self.w[n])):
-                part_type += ['Insert ' + str(i + 1) + ': ']
+                part_type += ['DNA Part ' + str(i + 1) + ': ']
         message = ''
         if (self.mode != 'clicked'):
             for i in range(0, len(self.w[n])):
@@ -235,6 +241,8 @@ def rec(assem, w, fin, dic,caps):
         name = 'ppopt_recording_StartStop.p'
     elif(assem=='BASIC'):
         name = 'ppopt_recording_BASIC_'+ str(len(w[0])) + 'parts.p'
+    elif(assem=='MoClo'):
+        name = 'ppopt_recording_MoClo_' + str(len(w[0])) + 'parts.p'
 
     pickle.dump(recording, open(name, 'wb'))
     return
