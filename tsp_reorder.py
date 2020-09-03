@@ -240,16 +240,6 @@ def h_tree(inroute, remaining, D, heur):
         answer = tally * len(remaining)
         return answer
 
-    # leastout: h is the k-power average of the number of newly created cost 1 edges and the number of remaining subsets
-    # NOT USED!
-    elif (heur == 'leastout'):
-        k = 2 # define the k
-        l = len(Dupdate(D, inroute[-1])) # get number of newly created cost 1 edges
-
-        # calculate the value of h
-        answer = ((l ** k) * len(remaining)) ** (1 / (k + 1))
-        return answer
-
 
 # ----------------------------AUXILIARIES FOR TREE SEARCH---------------------------
 # update D according to the subset
