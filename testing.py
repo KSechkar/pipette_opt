@@ -8,15 +8,15 @@ import statistics as stats
 
 from tsp_method import tsp_method
 from statespace_methods import nns, greedy_tree
-from input_generator import wgenerator, inputlist
+from input_generator import wgenerator
 from auxil import *
 
 
 # --------------------------------MAIN---------------------------------
 def main():
-    MAXI = 3  # maximum number of wells we test+1
+    MAXI = 97  # maximum number of wells we test+1
     MINI = 2  # maximum number of wells we test+1
-    READ = 1  # how many inputs we read form each file
+    READ = 50  # how many inputs we read form each file
 
     # make column labels
     columns = ['Number of wells']
@@ -24,24 +24,9 @@ def main():
         columns.append(str(i))
 
     # initialise results arrays with row labels
-    means = [['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
-               ['TSP-greedy'],
-               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
-               ['Greedy+sametogether']]
-    medians=[['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
-               ['TSP-greedy'],
-               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
-               ['Greedy+sametogether']]
-    stdevs=[['TSP-random'], ['TSP'], ['TSP-sametogether'],
-               ['TSP-nearest neighbour'], ['TSP-nns depth 2'], ['TSP-leastout'],
-               ['TSP-greedy'],
-               ['Nearest Neighbour'], ['nns depth 2'], ['Greedy'],
-               ['Nearest Neighbour+sametogether'], ['nns depth 2+sametogether'],
-               ['Greedy+sametogether']]
+    means = [['Greedy'], ['Greedy+sametogether']]
+    medians = [['Greedy'], ['Greedy+sametogether']]
+    stdevs = [['Greedy'], ['Greedy+sametogether']]
 
     #get results
     for i in range(MINI,MAXI):
@@ -78,9 +63,9 @@ def main():
                     fin = []
                     if(means[itr][0][0:3]=='TSP'):
                         if(len(means[itr][0])==3):
-                            tsp_method(w,fin,reord=None,filename=None,caps=caps)
+                            tsp_method(w,fin,reord=None,caps=caps)
                         else:
-                            tsp_method(w,fin,means[itr][0][4:],filename=None,caps=caps)
+                            tsp_method(w,fin,means[itr][0][4:],caps=caps)
                     else:
                         #define reordering
                         if(means[itr][0][-12:]=='sametogether'):
@@ -104,18 +89,18 @@ def main():
         for itr in range(0,len(means)):
             means[itr].append(str(stats.mean(all_sols[itr])))
             medians[itr].append(str(stats.median(all_sols[itr])))
-            #stdevs[itr].append(str(stats.stdev(all_sols[itr])))
+            stdevs[itr].append(str(stats.stdev(all_sols[itr])))
 
-        with open('progress/tsp_log.txt',mode="w+") as progress:
+        with open('progress/greedy_log.txt',mode="w+") as progress:
             progress.write('Case for '+str(i)+' wells processed - '+str(96-i)+' to go')
 
     #record results in output files
     #open files
-    outmeans = open('results/means.csv', mode="w+",newline='')
+    outmeans = open('results/greedy_means.csv', mode="w+",newline='')
     outmeans_w = csv.writer(outmeans, delimiter=',')
-    outmedians = open('results/medians.csv', mode="w+",newline='')
+    outmedians = open('results/greedy_medians.csv', mode="w+",newline='')
     outmedians_w = csv.writer(outmedians, delimiter=',')
-    outstdevs = open('results/stdevs.csv', mode="w+",newline='')
+    outstdevs = open('results/greedy_stdevs.csv', mode="w+",newline='')
     outstdevs_w = csv.writer(outstdevs, delimiter=',')
 
     #put column labels

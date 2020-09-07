@@ -58,22 +58,34 @@ Just make the following changes to assembly.py...
 """
 FOR BASIC ASSEMBLY
 While this API should be operational, it was not tested with any real BASIC assembly inputs.
-Correctness of all assumptions is only guaranteed when the Link between part N and N+1 is the same for every construct.
 
-In assembly_template.py:
-- After all import statements, insert (if DNABOT and pipette_opt project folders are in the same folder):
-    # Importing API from the neighbouring folder with pipette_opt project
+In dnabot_app.py:
+- After all import statements, insert:
+     # Importing API from the neighbouring folder with pipette_opt project
     # Will be different in the future (maybe pipette_opt will be a package?)
     import sys
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
+    
+- Line 105 (after the 'calculate OT2 script variables' section). Insert (method selection the same as for Start-Stop):
+    print('pipette_opt: optimising part distribution order...')
+    ppopt_action_list = ppopt.basic_part_transfer_actions(method=..., final_assembly_dict=final_assembly_dict, part_vol=1.5, pipette_vol = 10)
 
-- Lines 76-80
+- Line 117 - add a kwarg action_list=ppopt_action_list to get:
+    generate_ot2_script(F_ASSEMBLY_FNAME, os.path.join(
+        template_dir_path, F_ASSEMBLY_TEMP_FNAME),
+        final_assembly_dict=final_assembly_dict,
+        tiprack_num=final_assembly_tipracks,action_list=ppopt_action_list)
+    
+
+
+In assembly_template.py:
+- In final_assembly() function:
     Comment the whole 'part transfers' section
-- Line 81
-    Insert (see Start-Stop Assembly for choosing the method): 
-            action_list = ppopt.basic_part_transfer_actions(final_assembly_dict,1.5,pipette,method=...)
-            ppopt.basic_execute(action_list,pipette,magbead_plate,destination_plate)
+    After it, put  a line: 
+        basic_execute(action_list, pipette, magbead_plate, destination_plate)
+        
+- After the final_assembly() definition, insert the whole definition of basic_execute() from this file
 """
 
 """
@@ -100,7 +112,7 @@ FOR MOCLO ASSEMBLY
             locations.append({'construct': construct_location, 'parts': part_locations.copy()})
         
         # call the adapter
-        action_list = ppopt.moclo_actions(..., combinations_to_make, locations, 2, p10_single)
+        action_list = ppopt.moclo_actions(..., combinations_to_make, locations, 2, p10_single.max_volume)
         ppopt.moclo_execute(action_list,p10_single)
 """
 
@@ -398,7 +410,7 @@ def startstop_handle_backbones(assembly,method, pipette):
 
 
 # ---------------------BASIC ASSEMBLY---------------------------
-def basic_part_transfer_actions(method, final_assembly_dict, part_vol, pipette):
+def basic_part_transfer_actions(method, final_assembly_dict, part_vol, pipette_vol):
     # PART 1: Group all the constructs by lengths
     assembly_dict_by_lens={}
     for key in final_assembly_dict.keys():
@@ -422,12 +434,12 @@ def basic_part_transfer_actions(method, final_assembly_dict, part_vol, pipette):
     action_list = tuple()
     # add actions for each group of subsets
     for one_dict in assembly_dict_by_lens.values():
-        action_list += basic_part_transfer_actions_onelen(method, one_dict, part_vol, pipette)
+        action_list += basic_part_transfer_actions_onelen(method, one_dict, part_vol, pipette_vol)
 
     return action_list
 
 
-def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette):
+def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette_volume):
     # PART 1 Convert data into internal format
 
     # PART 1.1 Empty objects to fill
@@ -495,7 +507,8 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
     # PART 1.4 Get capacities
     air_gap=1
-    caps = capacities(reqvols=reqvols, pipcap=pipette.max_volume, airgap=air_gap)
+    #if(type(pipette)!=)
+    caps = capacities(reqvols=reqvols, pipcap=pipette_volume, airgap=air_gap)
 
     # PART 2 Solve the problem
     fin = []  # output operations (internal format)
@@ -524,7 +537,9 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     cost = route_cost_with_w(fin, w, caps)
     savings = len(fin) - cost
     percentsavings = savings / len(fin) * 100
-    print('\npipette_opt: ' + str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
+    print('pipette_opt:\n')
+    print(str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
+    print('Thus ' + str(cost) + ' tips required\n')
 
     # PART 2.3 record
     rec('BASIC', w, fin, dic, caps)
@@ -603,8 +618,8 @@ def basic_execute(action_list, pipette, magbead_plate, destination_plate):
     return
 
 
-# ---------------------BASIC ASSEMBLY---------------------------
-def moclo_actions(method, names, locations, part_vol, pipette):
+# ---------------------MOCLO ASSEMBLY---------------------------
+def moclo_actions(method, names, locations, part_vol, pipette_vol):
     # PART 1: Group all the constructs by lengths
     assembly_dict_by_lens={}
     for i in range(0,len(names)):
@@ -640,12 +655,12 @@ def moclo_actions(method, names, locations, part_vol, pipette):
     action_list = tuple()
     # add actions for each group of subsets
     for one_dict in assembly_dict_by_lens.values():
-        action_list += moclo_part_transfer_actions_onelen(method, one_dict, part_vol, pipette)
+        action_list += moclo_part_transfer_actions_onelen(method, one_dict, part_vol, pipette_vol)
 
     return action_list
 
 
-def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette):
+def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette_vol):
     # PART 1 Convert data into internal format
 
     # PART 1.1 Empty objects to fill
@@ -715,7 +730,7 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
     # PART 1.4 Get capacities
     air_gap=1
-    caps = capacities(reqvols=reqvols, pipcap=pipette.max_volume, airgap=air_gap)
+    caps = capacities(reqvols=reqvols, pipcap=pipette_vol, airgap=air_gap)
 
     # PART 2 Solve the problem
     fin = []  # output operations (internal format)
