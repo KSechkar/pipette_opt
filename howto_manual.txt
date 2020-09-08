@@ -1,9 +1,10 @@
 INSTRUCTIONS: HOW TO TEST THE SOLVERS
+(exact line numbers may have changed)
 
 TSP-BASED METHOD
 1. Open tsp_method.py
-2. Comment line 64 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
-3. To select which reordering to run before solving the TSPs, in line 70 change the 3rd argument of tsp_method function (reord):
+2. Comment line 180 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
+3. To select which reordering to run before solving the TSPs, in line 203 change the 3rd argument of tsp_method function (reord):
 	- 'random' randomly reorder the subsets
 	- 'samethogether' combine all p, all c, all r and all t subsets into four blocks, rearrange these 4 blocks with leastout
 	- 'leastout' the subsets causing the least number of new weight-1 edges go first
@@ -11,7 +12,6 @@ TSP-BASED METHOD
 	- 'iddfs depth 2' use iterative-deepening depth-first tree search to determine the order of subsets
 	- 'greedy' use greedy tree search to determine the order of subsets
 		- only 'countall' heurstic function gives good results, so please keep the heur argument of reorder_greedy function as it is
-	- 'a*' !!!Hardly works and not recommended
 4. Run the program. The output sequence of operations fin (reagent name->well name) will be printed
 P.S. The main branch uses tspy package for solving the problem. Go to the lp_for_tsp branch to try linear programming methods. 
 In line 181, choose which solver to use, i.e. call the function:
@@ -21,10 +21,15 @@ In line 181, choose which solver to use, i.e. call the function:
 
 STATE-SPACE BASED METHODS
 1. Open statespace_methods.py
-2. Like for TSP, comment line 60 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
+2. Like for TSP, comment line 254 to use a test 4-well input; decomment for a random 96-well input. Change the first argument (hm_wells) to change the number of wells randomly generated
 3. To select which solver to run, decomment EXACTLY ONE function call in lines 65-75. The comments above function calls explain what each of the function does
-	- only 'optimistic' heursistic gives good results, so please keep the heur argument of greedy_tree as it is
+	- only 'optimistic+cap' heursistic gives good results, so please keep the heur argument of greedy_tree as it is
 4. Run the program. The output sequence of operations fin (reagent name->well name) will be printed
+
+HUB-SPOKE METHOD
+1. Open hub_spoke.py
+2. Change the main() to alter the input in accordance with the comments
+3. Run the program
 
 CREATING .CSV INPUTS
 1. Create a folder 'inputs'
