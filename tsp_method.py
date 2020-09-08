@@ -179,7 +179,7 @@ def main():
 
     w = wgenerator(96, 6, 6, 3, 4)
 
-    # generate required volumes (for testing)
+    # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss=[]
     w_to_subsets(w,ss)
     reqvols = {}
@@ -199,7 +199,7 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # Call the solver. Input empty file name to have w as input, empty w to use a json file as input
+    # Call the solver. Specify the heuristic reordering used by changing reord
     tsp_method(w, fin, reord=None, caps=caps)
 
     dispoper(fin)

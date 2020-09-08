@@ -324,7 +324,7 @@ def main():
     # define capacity-related information (not in testing, reqvols will be differently defined)
     pipinfo={'pipcap': 10, 'airgap': 1, 'reqvols':{}}
 
-    # generate required volumes (for testing)
+    # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss = []
     w_to_subsets(w, ss)
     for s in ss:

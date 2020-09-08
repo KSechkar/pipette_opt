@@ -243,7 +243,7 @@ def main():
     a) Use a manually defined well array, or
     b) Generate 
             change 1st argument of wgenerator to define the number of wells/constructs
-            change 4 last arguments of wgenerator to define the size of p, r, c and t part sets
+            change 4 last arguments of wgenerator to define the size of p, r, c and t part sets (this is Start-Stop assembly)
     Comment out the respective line to deselect
     """
     w = [['p1', 'r2', 'c4', 't1'],
@@ -256,7 +256,7 @@ def main():
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
-    # generate required volumes (for testing)
+    # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss = []
     w_to_subsets(w, ss)
     reqvols = {}
@@ -272,6 +272,10 @@ def main():
 
     # get capacitites
     caps = capacities(reqvols, 10, 1.0)
+
+    # DECOMMENT THE LINE THAT CALLS THE ALGORITHM YOU WANT TO TEST, COMMENT ALL OTHERS
+    # CHANGE THE 'REORD' ARGUMENT TO APPLY AN HEURSTIC REORDERING BEFORE SOLVING...
+    # ...reord=None FOR NO REORDERING; reord='sameotogether' FOR SAMETOGETHER REORDERING.
 
     # use nearest-neighbour tree search (NNS) to solve the problem
     # nns(w, fin, 1, reord='sametogether', caps=caps)
