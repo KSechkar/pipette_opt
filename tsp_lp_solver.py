@@ -167,11 +167,10 @@ def lp_cap(D, cap, maxtime):
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
     chains, iscycle = recover(selected)  # get tour from selected edges
 
-    # sanity check that there are no cycles
+    # sanity check that there are no cycles and the chain lengths do not exceed the capacity
     for i in range(0, len(chains)):
-        if (iscycle[i]):
-            print('Error! Cycle detected!')
-            break
+        assert (not iscycle[i])
+        assert (len(chains[i]) <= gurcap)
 
     return chains
 
