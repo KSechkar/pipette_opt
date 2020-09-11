@@ -72,12 +72,6 @@ class Vis(tk.Frame):
                 precoord = con['con_liqloc'][0].display_name
             elif (self.assembly == 'BASIC'):
                 precoord = con['con_liqloc']
-            elif (self.assembly == 'MoClo'):
-                well = con['con_liqloc']
-                for child in well.parent.children_by_name.keys():
-                    if (well.parent.children_by_name[child]._coordinates == well._coordinates):
-                        precoord = child
-                        break
 
             y_coord = self.rowcoords[precoord[0]]
             x_coord = int(precoord[1:])
@@ -241,8 +235,6 @@ def rec(assem, w, fin, dic,caps):
         name = 'ppopt_recording_StartStop.p'
     elif(assem=='BASIC'):
         name = 'ppopt_recording_BASIC_'+ str(len(w[0])) + 'parts.p'
-    elif(assem=='MoClo'):
-        name = 'ppopt_recording_MoClo_' + str(len(w[0])) + 'parts.p'
 
     pickle.dump(recording, open(name, 'wb'))
     return

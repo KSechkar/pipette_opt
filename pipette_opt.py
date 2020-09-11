@@ -57,7 +57,6 @@ Just make the following changes to assembly.py...
 
 """
 FOR BASIC ASSEMBLY
-While this API should be operational, it was not tested with any real BASIC assembly inputs.
 
 In dnabot_app.py:
 - After all import statements, insert:
@@ -90,30 +89,51 @@ In assembly_template.py:
 
 """
 FOR MOCLO ASSEMBLY
-- After all import statements, insert (if the protocol and pipette_opt project folders are in the same folder):
+
+In moclo_transform_generator.py:
+- After all import statements, insert:
     # Importing API from the neighbouring folder with pipette_opt project
     # Will be different in the future (maybe pipette_opt will be a package?)
     import sys
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
-- Lines 254-285
-    Comment out the whole section
-- Line 253
-    Insert (see Start-Stop Assembly for choosing the method in place of ...):
-        locations = []
-        for combination in combinations_to_make:
-            # get location of the construct
-            construct_location = find_combination(combination['name'], combinations_to_make)
-            # get locations of parts of this construct
-            part_locations = []
-            for part in combination['parts']:
-                part_locations.append(find_dna(part, dna_plate_map_dict, dna_plate_dict))
-            # record the locations
-            locations.append({'construct': construct_location, 'parts': part_locations.copy()})
-        
-        # call the adapter
-        action_list = ppopt.moclo_actions(..., combinations_to_make, locations, 2, p10_single.max_volume)
-        ppopt.moclo_execute(action_list,p10_single)
+    
+- Line 45 (after calling the generate_and_save_output_plate_maps() function ). Insert (method selection the same as for Start-Stop):
+    # PIPETTE_OPT
+	# knowing that in this assembly a p10 pipette is used to distribute 2uL part aliquots, create action list
+	ppopt_action_list = ppopt.moclo_part_transfer_actions(method=..., combinations_to_make=combinations_to_make, part_vol=2, pipette_vol=10)
+
+- Line 117 - when calling the create_protocol() function, also include a ppopt_action_list=ppopt_action_list argument:
+    create_protocol(dna_plate_map_dict, combinations_to_make, config['protocol_template_path'], config['output_folder_path'], ppopt_action_list=ppopt_action_list)
+
+- Line 202 - when declaring the create_protocol() function, add an extra ppopt_action list argument:
+    def create_protocol(dna_plate_map_dict, combinations_to_make, protocol_template_path, output_folder_path, ppopt_action_list):
+    
+- Line 212 (after writing dna_plate_dict and combinations_to_make in the script) - also write action_list in the script:
+    # PIPETTE_OPT
+		protocol_file.write('action_list = ' + json.dumps(ppopt_action_list) + '\n\n')
+		
+
+In moclo_transform_template.py
+- Line 246 - COMMENT OUT the following section:
+    combinations_by_part = {}
+    for i in combinations_to_make:
+        name = i["name"]
+        for j in i["parts"]:
+            if j in combinations_by_part.keys():
+                combinations_by_part[j].append(name)
+            else:
+                combinations_by_part[j] = [name]
+                
+- Lines 255-278 (right after the just commented-out section):
+    COMMENT OUT the whole section titled #This section of the code combines and mix the DNA parts according to the combination list
+    
+- Line 280 (right after that):
+    insert the definition of the moclo_execute() function, which is given later in this file
+    
+- Line 311 (right after the moclo_execute() definition) - call moclo_execute():
+    moclo_execute(action_list,p10_single)
+
 """
 
 # -----------------------class definitions-----------------------------
@@ -266,7 +286,8 @@ def startstop_actionlist(assembly,method, pipette):
     cost = route_cost_with_w(fin, w, caps)
     savings = len(fin) - cost
     percentsavings = savings/len(fin)*100
-    print('\npipette_opt: '+str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
+    print('\npipette_opt: '+str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)')
+    print('Thus ' + str(cost) + ' tips required\n')
 
     # PART 2.3 Record in a .json file
     rec('Start-Stop',w,fin,dic,caps)
@@ -538,7 +559,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     savings = len(fin) - cost
     percentsavings = savings / len(fin) * 100
     print('pipette_opt:\n')
-    print(str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
+    print(str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)')
     print('Thus ' + str(cost) + ' tips required\n')
 
     # PART 2.3 record
@@ -619,36 +640,24 @@ def basic_execute(action_list, pipette, magbead_plate, destination_plate):
 
 
 # ---------------------MOCLO ASSEMBLY---------------------------
-def moclo_actions(method, names, locations, part_vol, pipette_vol):
+def moclo_part_transfer_actions(method, combinations_to_make, part_vol, pipette_vol):
     # PART 1: Group all the constructs by lengths
     assembly_dict_by_lens={}
-    for i in range(0,len(names)):
-        # PART 1.1: get an entry in the format used later
-        # create a dictionary entry
-        entry = {}
-
-        # get construct details
-        entry['construct']={'con_name': names[i]['name'], 'con_liqloc': locations[i]['construct']}
-        # get part details
-        entry['parts'] = []
-        for j in range(0,len(names[i]['parts'])):
-            entry['parts'].append({'part_name': names[i]['parts'][j], 'part_liqloc': locations[i]['parts'][j]})
-
-        # PART 1.2: decide where to record this new entry
+    for comb in combinations_to_make:
         # check if such length is already present
         match = False
-        final_len = len(names[i]['parts'])
+        final_len = len(comb['parts'])
         for key_by_lens in assembly_dict_by_lens.keys():
             if(final_len == key_by_lens):
                 match = True
                 break
 
-        # if yes, add  dictionary entry to existing dictionary
+        # if yes, add
         if(match):
-            assembly_dict_by_lens[key_by_lens].append(entry)
+            assembly_dict_by_lens[key_by_lens].append(comb)
         # if no, create a new entry with this length and this construct standing for it
         else:
-            assembly_dict_by_lens[final_len] = [entry]
+            assembly_dict_by_lens[final_len] = [comb]
 
     # PART 2: Make the action list
     # initialise
@@ -660,7 +669,7 @@ def moclo_actions(method, names, locations, part_vol, pipette_vol):
     return action_list
 
 
-def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pipette_vol):
+def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_volume):
     # PART 1 Convert data into internal format
 
     # PART 1.1 Empty objects to fill
@@ -680,10 +689,9 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
 
     # PART 1.3 Read the constructs
-    for construct in final_assembly_dict:
+    for construct in constructs:
         # match well number in w with its location on the plate and construct
-        dic['constructs'][wellno] = {'con_name': construct['construct']['con_name'],
-                                     'con_liqloc': construct['construct']['con_liqloc']}
+        dic['constructs'][wellno] = {'con_name': construct['name']}
 
         # get parts
         parts = construct['parts'] # get list of parts of the cinstruct
@@ -707,20 +715,19 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
                 i_addr += 1
 
             # determine part name
-            partname = parts[i]['part_name']
+            part = parts[i]
 
             # check if such location is already in the dictionary
             match = False
             for partcode in dic['parts'].keys():
-                if (partname == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
+                if (part == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
                     well_parts.append(partcode)
                     match = True
                     break
 
             if (not match):  # if no, update the dictionary
                 newcode = parttype[i] + str(partnum[parttype[i]])  # determine which entry to record
-                dic['parts'][newcode] = {'part_name': parts[i]['part_name'],
-                                         'part_liqloc': parts[i]['part_liqloc']}  # put the entry into dictionary
+                dic['parts'][newcode] = {'part_name': parts[i]}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
                 reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
                 partnum[parttype[i]] += 1  # update number of parts of this class
@@ -730,7 +737,8 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
     # PART 1.4 Get capacities
     air_gap=1
-    caps = capacities(reqvols=reqvols, pipcap=pipette_vol, airgap=air_gap)
+    #if(type(pipette)!=)
+    caps = capacities(reqvols=reqvols, pipcap=pipette_volume, airgap=air_gap)
 
     # PART 2 Solve the problem
     fin = []  # output operations (internal format)
@@ -759,10 +767,9 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     cost = route_cost_with_w(fin, w, caps)
     savings = len(fin) - cost
     percentsavings = savings / len(fin) * 100
-    print('\npipette_opt: ' + str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)\n')
-
-    # PART 2.3 record
-    rec('MoClo', w, fin, dic, caps)
+    print('pipette_opt:\n')
+    print(str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)')
+    print('Thus ' + str(cost) + ' tips required\n')
 
     # PART 3 Convert internal-output operations into an action list
 
@@ -772,14 +779,13 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
     # PART 3.2 Define auxiliary variables
     added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
-    cost = 1
 
     # PART 3.3 The first operation in fin
     added[fin[0].well][address[fin[0].part[0]]] = 1
     fin[0].changed = True
-    part_source = dic['parts'][fin[0].part]['part_liqloc']
+    part_source = dic['parts'][fin[0].part]['part_name']
     part_vol = reqvols[fin[0].part]
-    part_dest = [dic['constructs'][fin[0].well]['con_liqloc']]
+    part_dest = [dic['constructs'][fin[0].well]['con_name']].copy()
 
     # PART 3.4 All later operations
     for i in range(1, len(fin)):
@@ -791,24 +797,23 @@ def moclo_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
         # act accroding to cost
         if (cost == 0):  # if 0, tip is unchanged
-            part_dest.append(dic['constructs'][fin[i].well]['con_liqloc'])
-
+            part_dest += [dic['constructs'][fin[i].well]['con_name']]
         else:  # if 1, there is new tip, so...
             # record last tip's actions
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 
             # start recording new tip details
-            part_source = dic['parts'][fin[i].part]['part_liqloc']
+            part_source = dic['parts'][fin[i].part]['part_name']
             part_vol = reqvols[fin[i].part]
-            part_dest = [dic['constructs'][fin[i].well]['con_liqloc']]
+            part_dest = [dic['constructs'][fin[i].well]['con_name']].copy()
 
         # if this is the end, just record last tip's actions
         if (i == len(fin) - 1):
-            action_list += ((part_source, part_dest.copy(), part_vol, new_tip, air_gap),)
+            action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 
     return action_list
 
-
+'''
 def moclo_execute(action_list, pipette):
     for action in action_list:
         # PART 1 Get directions
@@ -819,24 +824,26 @@ def moclo_execute(action_list, pipette):
 
         # PART 3 Aspirate
         # 3a) with air gaps
-        if (air_gap != 0):
+        if(air_gap != 0):
             for i in range(0, len(destination_wells) - 1):
-                pipette.aspirate(volume, source_well)
+                pipette.aspirate(volume, find_dna(source_well,dna_plate_map_dict,dna_plate_dict))
                 pipette.air_gap(air_gap)
-            pipette.aspirate(volume, source_well)
+            pipette.aspirate(volume, find_dna(source_well,dna_plate_map_dict,dna_plate_dict))
         # 3b) no air gaps
         else:
-            pipette.aspirate(volume * len(destination_wells), source_well)
+            pipette.aspirate(volume*len(destination_wells),find_dna(source_well,dna_plate_map_dict,dna_plate_dict))
+
 
         # PART 4 Distribute
-        for i in range(0,len(destination_wells)-1):
-            pipette.dispense(volume+air_gap, destination_wells[i])
-        pipette.dispense(volume, destination_wells[len(destination_wells)-1])
+        for i in range(0, len(destination_wells) - 1):
+            pipette.dispense(volume + air_gap, find_combination(destination_wells[i],combinations_to_make))
+        pipette.dispense(volume, find_combination(destination_wells[-1],combinations_to_make))
 
-        # PART 4 Drop used tip
+        # PART 5 Drop used tip
         pipette.drop_tip()
 
     return
+'''
 
 # -------------------------- MAIN (TEST ONLY) -------------------------
 def main():
