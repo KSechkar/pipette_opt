@@ -18,6 +18,15 @@ class Vis(tk.Frame):
     def initUI(self):
         self.choose_and_load()
 
+
+        # display tutorial messagebox
+        title='Welcome to contamination visualiser tool'
+        message='Welcome!\nHere is how to use the contamination visulaiser tool:\n\n'
+        message+='Left-click a well - for all the tips that served it, the parts that were present in the previously-visited wells will be displayed in bold.'
+        message+='\n\nMiddle-click - undo left-click'
+        message+='\n\nRight-click - display well contents in a message box'
+        msgb.showinfo(title=title, message=message)
+
         self.master.title("Construct contamination")
         self.pack(fill=tk.BOTH, expand=1)
 
@@ -70,11 +79,18 @@ class Vis(tk.Frame):
             con = self.dic['constructs'][i]
             if (self.assembly == 'Start-Stop'):
                 precoord = con['con_liqloc'][0].display_name
+                x_coord_str = ''
+                for k in range(1, len(precoord)):
+                    if (precoord[k] != ' '):
+                        x_coord_str += precoord[k]
+                    else:
+                        break
+                x_coord = int(x_coord_str)
+                y_coord = self.rowcoords[precoord[0]]
             elif (self.assembly == 'BASIC'):
                 precoord = con['con_liqloc']
-
-            y_coord = self.rowcoords[precoord[0]]
-            x_coord = int(precoord[1:])
+                x_coord = int(precoord[1:])
+                y_coord = self.rowcoords[precoord[0]]
 
             y_tl = self.defy_tl + (y_coord - 1) * (self.yside + self.interval)
             x_tl = self.defx_tl + (x_coord - 1) * (self.xside + self.interval)
