@@ -163,7 +163,7 @@ def disp(subsets, D):
 # -----------------------MAIN (TESTING ONLY)----------0-----------------
 def main():
     fin = []  # final array where the operations are to be recorded
-
+    fin_old =[] # TEST
     """
     INPUT:
     a) Use a manually defined well array, or
@@ -202,12 +202,11 @@ def main():
     # Call the solver. Specify the heuristic reordering used by changing reord
     tsp_method(w, fin, reord=None, caps=caps)
 
-    dispoper(fin)
+    #dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
-
 
 # main call
 if __name__ == "__main__":
