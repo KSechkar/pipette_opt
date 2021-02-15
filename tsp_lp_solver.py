@@ -41,8 +41,8 @@ def tsp_lp_gurobi(D):
 
 
     # PART 2: add initial constraints
-    m.addConstrs(vars.sum(c, '*') == 1 for c in nodes)  # each node has 1 incoming edge
-    m.addConstrs(vars.sum('*', c) == 1 for c in nodes)  # each node has 1 outgoing edge
+    m.addConstrs(vars.sum(c,'*') == 1 for c in nodes)  # each node has 1 incoming edge
+    m.addConstrs(vars.sum('*',c) == 1 for c in nodes)  # each node has 1 outgoing edge
 
 
     # PART 3: optimise the model
@@ -112,14 +112,12 @@ def lp_cap(D, cap, maxtime):
         mxt = maxtime
 
     # PART 1: initial preparations
-
     # PART 1.1: get the auxiliary array of node indices
-    # note the 0 node is skipped - it's an auxiliary only used by the TSP solver
-    global nodes
     nodes = []
-    for i in range(1, len(D)):
+    for i in range(0, len(D)):
         nodes.append(i)
-
+    wellnodes = nodes[1:len(nodes)] # record only nodes matched to wells (i.e. except 0)
+    
     # PART 1.2: convert distance matrix into the dictionary format used by GUROBI
     dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
 
@@ -127,7 +125,7 @@ def lp_cap(D, cap, maxtime):
     m = gp.Model(env=env)
 
     # PART 1.4: create a boolean matrix indicating the trip (commonly known as X in literature)
-    # Note: obj set to -1 as we need to MAXIMISE the number of Xij=1, i.e. minimise the sum of -Xij
+    # Note: the objective will be to minimise number of chosen edges leaving the 'depot', i.e. sum X_0,c for all c
     vars = m.addVars(dist.keys(), vtype=GRB.BINARY, name='e')
 
     # PART 1.5: copy capacity into a global variable to let other functions use it
@@ -138,19 +136,19 @@ def lp_cap(D, cap, maxtime):
     # PART 2: add constraints
 
     # PART 2.1: Limit number of incoming and outgoing edges for each node
-    m.addConstrs(vars.sum(c, '*') <= 1 for c in nodes)  # each node has at most 1 incoming edge
-    m.addConstrs(vars.sum('*', c) <= 1 for c in nodes)  # each node has at most 1 outgoing edge
+    m.addConstrs(vars.sum(c, '*') == 1 for c in wellnodes)  # each well node has at most 1 incoming edge
+    m.addConstrs(vars.sum('*', c) == 1 for c in wellnodes)  # each well node has at most 1 outgoing edge
 
     # PART 2.2: eliminate cycles and chains that are too long
     # create dummy variables needed for constraints
     u = {}
-    for i in nodes:
+    for i in wellnodes:
         u[i] = m.addVar(lb=0, ub=gurcap, vtype="C", name="u(%s)" % i)
 
     # add the constraints
     if (gurcap > 1.5):
-        m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(nodes, 2))
-        m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(nodes, 2))
+        m.addConstrs(u[j] - u[i] >= 1 - gurcap * (1 - vars[i, j]) for i, j in combinations(wellnodes, 2))
+        m.addConstrs(u[i] - u[j] >= 1 - gurcap * (1 - vars[j, i]) for i, j in combinations(wellnodes, 2))
 
     # PART 2.3: all edges selected into chains must be zero-length
     m.addConstr(
@@ -158,81 +156,37 @@ def lp_cap(D, cap, maxtime):
 
     # PART 3: optimise the model
     m.Params.TIME_LIMIT = mxt # set optimisation time limit
-    m.setObjective(gp.quicksum(vars[i, j] + vars[j, i] for i, j in combinations(nodes, 2)), GRB.MAXIMIZE) #set objective
+    m.setObjective(gp.quicksum(vars[0, c] for c in wellnodes), GRB.MINIMIZE) #set objective
     m.optimize() #optimise
 
 
     # PART 4: reconstruct the chains from m.vars (matrix X in literature)
     vals = m.getAttr('x', vars)
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
-    chains, iscycle = recover(selected)  # get tour from selected edges
 
-    # sanity check that there are no cycles and the chain lengths do not exceed the capacity
-    for i in range(0, len(chains)):
-        assert (not iscycle[i])
-        assert (len(chains[i]) <= gurcap)
-
-    return chains
+    return recover(selected)  # get tour from selected edges
 
 
 # recover the chains
 def recover(edges):
-    # PART 1: initial preparations
-    iscycle = []  # which of chains are cycles (True for a cycle)
-    chains = []  # all the chains covering the cycle
-    unvisited = np.ones((len(nodes)+1),dtype=bool)  #tells if a node was visited, position[0] is not needed
-    unvisited[0]=False  # first False just ensures compatibility with early versions of program)
+    chains=[] # make an empty list of 'chains'
 
-    # PART 2: get the chains
-    while True:
-        # see if no more unvisited nodes are left
-        noneleft=True
-        for i in range(1,len(unvisited)):
-            if (unvisited[i]):
-                noneleft=False
-                break
+    # go through all routes starting at the 0 ('depot') node
+    for edgeout in edges.select(0,'*'):
+        curnode = edgeout[1] # current node is the starting node of the route
+        curchain=[curnode] # record starting node into chain
 
-        # proceed to return statement if indeed no unvisited nodes are left
-        if(noneleft):
-            break
-
-        # otherwise, start reconstructing the chain which the unvisited node we found belongs to
-        thischain = [nodes[i - 1]]
-        unvisited[i] = False # and NOW, the node has been visited
-
-        # now we need to find the nodes that go before and after it in the chain
-        # first, get the nodes after
+        # get the rest of the chain
         while True:
-            # get the next node in chain
-            next = edges.select(thischain[-1], '*')
-
-            # if the chain's end was reached, this isn't a cycle
-            if(next==[]):
-                iscycle.append(False)
+            curnode = edges.select(curnode,'*')[0][1] # current node is now the next node
+            if(curnode!=0): # if it's a well node, record into chain
+                curchain.append(curnode)
+            else: # if returning to the 'depot', the whole route has been recorded
                 break
-            # if the node we began from is encountered again, it's a cycle and we have walked it all
-            elif(next[0][1]==thischain[0]):
-                iscycle.append(True)
-                break
-            # if neither, just add the next node in the chain
-            else:
-                thischain.append(next[0][1])
-                unvisited[next[0][1]]=False
 
-        # now get the previous nodes (if it wasn't a cycle)
-        if not (iscycle[-1]):
-            # get previous node in the chain (noted as 'next' to draw a parallel with the previous part)
-            next = edges.select('*',thischain[0])
-            # keep getting previous nodes until there are none
-            while (next!=[]):
-                thischain.insert(0,next[0][0])
-                unvisited[next[0][0]] = False
-                next = edges.select('*', thischain[0])
-
-        # record the obtained chain
-        chains.append(thischain.copy())
-
-    return chains, iscycle
+        # record the obtained chain into the output list
+        chains.append(curchain.copy())
+    return chains
 
 
 #------------------------------MAIN (TESTING ONLY)--------------------------

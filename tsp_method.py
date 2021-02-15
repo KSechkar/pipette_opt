@@ -177,7 +177,7 @@ def main():
          ['p1', 'r3', 'c2', 't2'],
          ['p2', 'r3', 'c1', 't1']]
 
-    w = wgenerator(96, 6, 6, 3, 4)
+    # w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss=[]
