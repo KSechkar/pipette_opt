@@ -58,7 +58,7 @@ class Oper:
 
 # ---------------------SOLVER FUNCTION----------------------------------
 # solves the problem
-def tsp_method(w, fin, reord, caps):
+def tsp_method(w, fin, reord, caps,old):
     # PART 1: initial preparations
 
     # PART 1.1: get the subsets
@@ -94,12 +94,12 @@ def tsp_method(w, fin, reord, caps):
     # PART 3: implement the algorithm
     for i in range(0, len(subsets)):
         # call single-subset LP solver for each subset
-        singlesub(subsets[i], D, fin, caps[subsets[i].part])
+        singlesub(subsets[i], D, fin, caps[subsets[i].part],old)
 
 
 # ------------------SOLVER FOR ONE SUBSET-------------------------------
 # creates and solves an LP problem for
-def singlesub(subset, D, fin, cap):
+def singlesub(subset, D, fin, cap,old):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -130,16 +130,28 @@ def singlesub(subset, D, fin, cap):
 
     # 3a): capacitated problem
     if(cap!=None):
-        # get the chain coverage
-        if (len(subD) == 2):
-            chains = [[1]]
-        else:
-            chains = lp_cap(subD, cap,maxtime=None)
+        if (old==False):
+            # get the chain coverage
+            if (len(subD) == 2):
+                chains = [[1]]
+            else:
+                chains = lp_cap(subD, cap,maxtime=None)
 
-        # record operations in fin
-        for chain in chains:
-            for i in range(0,len(chain)):
-                fin.append(Oper(subset.part, subset.wells[chain[i]-1]))
+            # record operations in fin
+            for chain in chains:
+                for i in range(0,len(chain)):
+                    fin.append(Oper(subset.part, subset.wells[chain[i]-1]))
+        else:
+            # get the chain coverage
+            if (len(subD) == 2):
+                chains = [[1]]
+            else:
+                chains = lp_cap_old(subD, cap, maxtime=None)
+
+            # record operations in fin
+            for chain in chains:
+                for i in range(0, len(chain)):
+                    fin.append(Oper(subset.part, subset.wells[chain[i] - 1]))
 
     # 3b): non-capacitated problem
     else:
@@ -163,7 +175,7 @@ def disp(subsets, D):
 # -----------------------MAIN (TESTING ONLY)----------0-----------------
 def main():
     fin = []  # final array where the operations are to be recorded
-
+    fin_old =[] # TEST
     """
     INPUT:
     a) Use a manually defined well array, or
@@ -177,7 +189,7 @@ def main():
          ['p1', 'r3', 'c2', 't2'],
          ['p2', 'r3', 'c1', 't1']]
 
-    # w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss=[]
@@ -200,14 +212,25 @@ def main():
     time1 = time.time()
 
     # Call the solver. Specify the heuristic reordering used by changing reord
-    tsp_method(w, fin, reord=None, caps=caps)
+    tsp_method(w, fin, reord=None, caps=caps, old=False)
 
-    dispoper(fin)
+    #dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
 
+    time1 = time.time()
+    tsp_method(w, fin_old, reord=None, caps=caps, old=True)
+    print('Old time: ' + str(1000 * (time.time() - time1)) + 'ms')
+    print('Old tips: '+str(route_cost_with_w(fin_old, w, caps)))
+
+    for f in range(0,len(fin)):
+        if (fin[f].part!=fin_old[f].part or fin[f].well!=fin_old[f].well):
+            print('Achtung! '+str(f))
+            dispoper([fin[f]])
+            dispoper([fin_old[f]])
+            break
 
 # main call
 if __name__ == "__main__":
