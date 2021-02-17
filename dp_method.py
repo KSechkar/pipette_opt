@@ -4,14 +4,16 @@ from auxil import *
 from copy import deepcopy
 
 class DPrecord:
-    def __init__(self, op, w):
+    def __init__(self, op, w, pos):
         self.op=op
-        self.opsfromnow = [op]  # is True if this operation involves a tip change
         self.added=np.ones((len(w), len(w[0])), dtype=bool)
         self.bestcost=-1 # CHANGED property must be different!
+        self.nextindex=-1
+        self.nextchanged=False
+        self.pos=pos
 
     def __str__(self):
-        strRep = self.op.part + ' -> w' + str(self.op.well) + ' | ' + str(len(self.opsfromnow)) + ' op remaining'
+        strRep = self.op.part + ' -> w' + str(self.op.well) + ' | operation no.' + str(self.pos)
         return strRep
 
 # ----------------- SOLVER FUNCTION -------------------
@@ -29,27 +31,29 @@ def dp(w,fin,caps):
         for rec in dprecs[pos]:
             dpcosts=[]
             for maybenext in dprecs[pos+1]:
-                dpcosts.append(getdpcost(rec,maybenext,w,address,caps))
+                dpcosts.append(getdpcost(rec,maybenext,dprecs,w,address,caps))
 
             rec.bestcost = min(dpcosts)
-            nextrec=dprecs[pos+1][dpcosts.index(rec.bestcost)]
+            rec.nextindex=dpcosts.index(rec.bestcost)
 
-            rec.opsfromnow =rec.opsfromnow + deepcopy(nextrec.opsfromnow)
+            nextrec = dprecs[pos + 1][rec.nextindex]
             if (nextrec.bestcost < rec.bestcost):
-                rec.opsfromnow[1].changed = True
+                rec.nextchanged = True
 
             rec.added=deepcopy(nextrec.added)
             rec.added[rec.op.well][address[rec.op.part[0]]]=False
 
-            # TEST ONLY
-            trues=0
         print(pos)
 
     frecs=dprecs[0]
-    bestrec=min(frecs,key=lambda frecs: frecs.bestcost)
-    for op in bestrec.opsfromnow:
-        fin.append(op)
+    finrec=min(frecs,key=lambda frecs: frecs.bestcost)
+    fin.append(finrec.op)
     fin[0].changed=True
+    for pos in range(1,len(dprecs)):
+        nextchanged=finrec.nextchanged
+        finrec=dprecs[finrec.pos+1][finrec.nextindex]
+        fin.append(finrec.op)
+        fin[-1].changed=nextchanged
 
 
 # ----------------- AUXILIARY FUNCTIONS -------------------
@@ -59,10 +63,12 @@ def getdprecs(w,dprecs):
         dprecs.append([])
         for well in range(0, len(w)):
             for part in range(0, len(w[well])):
-                dprecs[i].append(DPrecord(Oper(w[well][part], well), w))
+                dprecs[i].append(DPrecord(Oper(w[well][part], well), w, i))
 
 # get cost of putting the current operation before the next suggested operation
-def getdpcost(rec,maybenext,w,address,caps):
+def getdpcost(rec,maybenext,dprecs,w,address,caps):
+    numops=len(w)*len(w[0])
+
     if(maybenext.added[rec.op.well][address[rec.op.part[0]]]==False):
         return np.inf
 
@@ -75,12 +81,15 @@ def getdpcost(rec,maybenext,w,address,caps):
                 if not (maybenext.added[rec.op.well][i] == 0 or (w[rec.op.well][i] == w[maybenext.op.well][i] and maybenext.added[maybenext.op.well][i] == 1)):
                     extracost=1
 
-        if(extracost==0 and caps[rec.op.part]<len(maybenext.opsfromnow)):
+        if(extracost==0 and caps[rec.op.part]<numops-rec.pos):
             extracost=1
+            checkrec=rec
             for i in range(0,caps[rec.op.part]):
-                if(maybenext.opsfromnow[i].changed):
+                if(checkrec.nextchanged):
                     extracost=0
                     break
+                else:
+                    checkrec=dprecs[rec.pos+1][rec.nextindex]
 
     return extracost+maybenext.bestcost
 
@@ -103,7 +112,7 @@ def main():
          ['p1', 'r3', 'c2', 't1'],
          ['p1', 'r3', 'c1', 't1']]
 
-    # w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss=[]
