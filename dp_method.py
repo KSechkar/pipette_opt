@@ -1,7 +1,9 @@
 import time
+from copy import deepcopy
+
 from input_generator import wgenerator
 from auxil import *
-from copy import deepcopy
+from statespace_methods import getops
 
 class DPrecord:
     def __init__(self, op, w, pos):
@@ -17,9 +19,9 @@ class DPrecord:
         return strRep
 
 # ----------------- SOLVER FUNCTION -------------------
-def dp(w,fin,caps):
+def dp(w,fin,caps,reord):
     dprecs=[]
-    getdprecs(w,dprecs)
+    getdprecs(w,dprecs,reord)
     address = addrfromw(w)
 
     # Loop!
@@ -40,7 +42,7 @@ def dp(w,fin,caps):
             if (nextrec.bestcost < rec.bestcost):
                 rec.nextchanged = True
 
-            rec.added=deepcopy(nextrec.added)
+            rec.added=nextrec.added.copy()
             rec.added[rec.op.well][address[rec.op.part[0]]]=False
 
         print(pos)
@@ -58,12 +60,19 @@ def dp(w,fin,caps):
 
 # ----------------- AUXILIARY FUNCTIONS -------------------
 # get list of type DPOper operations from w
-def getdprecs(w,dprecs):
-    for i in range(0,len(w)*len(w[0])):
-        dprecs.append([])
-        for well in range(0, len(w)):
-            for part in range(0, len(w[well])):
-                dprecs[i].append(DPrecord(Oper(w[well][part], well), w, i))
+def getdprecs(w,dprecs,reord):
+    ops=[]
+    getops(w,ops,reord)
+    if(reord==None):
+        for i in range(0,len(ops)):
+            dprecs.append([])
+            for j in range(0,len(ops)):
+                dprecs[i].append(DPrecord(ops[j], w, i))
+    else:
+        for i in range(0,len(ops)):
+            dprecs.append([])
+            for j in reversed(range(0,len(ops))):
+                dprecs[i].append(DPrecord(deepcopy(ops[j]), w, i))
 
 # get cost of putting the current operation before the next suggested operation
 def getdpcost(rec,maybenext,dprecs,w,address,caps):
@@ -83,17 +92,84 @@ def getdpcost(rec,maybenext,dprecs,w,address,caps):
 
         if(extracost==0 and caps[rec.op.part]<numops-rec.pos):
             extracost=1
-            checkrec=rec
-            for i in range(0,caps[rec.op.part]):
+            checkrec=maybenext
+            for i in range(1,caps[rec.op.part]):
                 if(checkrec.nextchanged):
                     extracost=0
                     break
                 else:
-                    checkrec=dprecs[rec.pos+1][rec.nextindex]
+                    checkrec=dprecs[checkrec.pos+1][checkrec.nextindex]
 
     return extracost+maybenext.bestcost
 
 
+def dpforward(w,fin,caps,reord):
+    dprecs=[]
+    getdprecs(w,dprecs,reord)
+    address = addrfromw(w)
+
+    for recs in dprecs:
+        for rec in recs:
+            rec.added=np.zeros((len(w),len(w[0])),dtype=bool)
+
+    # Loop!
+    for rec in dprecs[0]:
+        rec.bestcost=0
+        rec.added[rec.op.well][address[rec.op.part[0]]]=True
+        rec.nextchanged=True
+
+    for pos in range(1,len(dprecs)):
+        for rec in dprecs[pos]:
+            dpcosts=[]
+            for maybeprev in dprecs[pos-1]:
+                dpcosts.append(getdpcostforward(rec,maybeprev,dprecs,w,address,caps))
+
+            rec.bestcost = min(dpcosts)
+            rec.nextindex=dpcosts.index(rec.bestcost)
+
+            prevrec = dprecs[pos - 1][rec.nextindex]
+            if (prevrec.bestcost < rec.bestcost):
+                rec.nextchanged=True
+
+            rec.added=prevrec.added.copy()
+            rec.added[rec.op.well][address[rec.op.part[0]]]=True
+        print(pos)
+
+    frecs=dprecs[-1]
+    finrec=min(frecs,key=lambda frecs: frecs.bestcost)
+    fin.append(finrec.op)
+    fin[-1].changed=finrec.nextchanged
+    for pos in reversed(range(1,len(dprecs))):
+        finrec=dprecs[finrec.pos-1][finrec.nextindex]
+        fin.insert(0,finrec.op)
+        fin[0].changed=finrec.nextchanged
+
+def getdpcostforward(rec,maybeprev,dprecs,w,address,caps):
+    numops=len(w)*len(w[0])
+
+    if(maybeprev.added[rec.op.well][address[rec.op.part[0]]]==True):
+        return np.inf
+
+    if(rec.op.part!=maybeprev.op.part):
+        extracost=1
+    else:
+        extracost=0
+        for i in range(0, len(w[0])):
+            if (w[rec.op.well][i] != rec.op.part):
+                if not (maybeprev.added[maybeprev.op.well][i] == 0 or (w[rec.op.well][i] == w[maybeprev.op.well][i] and maybeprev.added[rec.op.well][i] == 1)):
+                    extracost=1
+
+        if(extracost==0 and caps[rec.op.part]<=rec.pos):
+            extracost=1
+            checkrec=maybeprev
+            for i in range(0,caps[rec.op.part]-1):
+                if(checkrec.nextchanged):
+                    extracost=0
+                    break
+                else:
+                    checkrec=dprecs[checkrec.pos-1][checkrec.nextindex]
+
+    return extracost+maybeprev.bestcost
 
 # ----------- MAIN FUNCTION (TESTING ONLY) ------------
 def main():
@@ -107,10 +183,10 @@ def main():
     Comment out the respective line to deselect
     """
 
-    w = [['p1', 'r2', 'c4', 't1'],
+    w = [['p1', 'r2', 'c1', 't1'],
+         ['p1', 'r2', 'c1', 't2'],
          ['p1', 'r2', 'c1', 't1'],
-         ['p1', 'r3', 'c2', 't1'],
-         ['p1', 'r3', 'c1', 't1']]
+         ['p1', 'r2', 'c1', 't2']]
 
     w = wgenerator(96, 6, 6, 3, 4)
 
@@ -127,34 +203,43 @@ def main():
             reqvols[s.part] = 0.36
         else:
             reqvols[s.part] = 0.75
-
     # get capacitites
     caps=capacities(reqvols,10,1.0)
-
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
-
+    #"""
     # Call the solver. Specify the heuristic reordering used by changing reord
-    dp(w, fin, caps)
+    dp(w, fin, caps,reord=None)
 
     dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-
+    
     fincost = 0
-    global changes
-    changes=[]
     for op in fin:
-        changes.append(int(op.changed))
         fincost += int(op.changed)
-
     print('The total number of pipette tips used is (from resultant list) ' + str(fincost))
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
+    route_cost_with_w(fin, w, caps)
+    #"""
+    fin2=[]
+    dpforward(w, fin2, caps, reord=None)
+    dispoper(fin2)
+    ffincost = 0
+    for op in fin2:
+        ffincost += int(op.changed)
+    print(ffincost)
+    route_cost_with_w(fin2, w, caps)
+    """
+    vanillacost = 0
+    for op in vanillafin:
+        vanillacost += int(op.changed)
+    print(vanillacost)
+    """
+    print(1)
 
 def route_cost_with_w(fin,w,caps):
     # PART 1: initial preparations
-
     # get addresses of part types in w
     address = addrfromw(w)
 
@@ -187,8 +272,8 @@ def route_cost_with_w(fin,w,caps):
         if (fin[i].changed != cfin[i].changed):
             print(str(cfin[i])+' || '+str(i))
     # PART 3: return the cost
-    return cost
-
+    print('The total number of pipette tips used is (independent calculation) ' + str(cost))
+    #dispoper(cfin)
 
 # main call
 if __name__ == "__main__":
