@@ -1,0 +1,196 @@
+import time
+
+from input_generator import wgenerator
+from auxil import *
+from statespace_methods import getops
+
+# ------------------------------CLASS DEFINITIONS----------------------------------
+# recording fromat used in the DP algorithm; operation, best pre, best cost of operation sequence up to this addition
+class DPrecord:
+    # initialisation
+    def __init__(self, op, w, pos):
+        self.op=op # which operation is performed
+        self.added=np.zeros((len(w), len(w[0])), dtype=bool) # state of wells at the moment (0 for unadded reagent, 1 for added); currently just initialised with zeros
+        self.bestcost=-1 # cost of best operation sequence leading up to this operation; currently just initialised as -1
+        self.previndex=-1 # index of the record for best prior operation; currenlty just initialised as -1
+        self.changed=False # indicates if this operation needs a tip change
+        self.pos=pos # position of this operation in the sequence
+
+    # for printing the part type, destination well and which operation it is in the sequence
+    def __str__(self):
+        strRep = self.op.part + ' -> w' + str(self.op.well) + ' | operation no.' + str(self.pos)
+        return strRep
+
+# ----------------- SOLVER FUNCTION -------------------
+def dp(w,fin,caps,reord):
+    # PART 1: initial preparations
+
+    # PART 1.1: get part type addresses from w
+    address = addrfromw(w)
+
+    # PART 1.2: get array of records for every operation on all possible positions
+    dprecs = []
+    getdprecs(w, dprecs, reord)
+
+    # PART 2: get the sequence of operations
+
+    # PART 2.1: deal with the records for the first operation in sequnce
+    for rec in dprecs[0]:
+        rec.bestcost = 1 # this is the first operation, so just 1 tip used
+        rec.changed = True  # this is the first operation, so a new tip is needed
+        rec.added[rec.op.well][address[rec.op.part[0]]] = True # record that the operation in question has been made
+
+    # PART 2.2: deal with all other records
+    # consider the second operation, then the third, etc.
+    for pos in range(1, len(dprecs)):
+        # consider all records in this position
+        for rec in dprecs[pos]:
+            # find costs of making this operation the next after all possible prior operations
+            dpcosts = []
+            for maybeprev in dprecs[pos - 1]:
+                dpcosts.append(getdpcost(rec, maybeprev, dprecs, w, address, caps))
+
+            rec.bestcost = min(dpcosts) # find the one with the best cost
+            rec.previndex = dpcosts.index(rec.bestcost) # record it as the previous operation
+            prevrec = dprecs[pos - 1][rec.previndex] # get the record of the best-cost previous operation
+
+            # copy the status of wells from the determined previous record and update it
+            rec.added = prevrec.added.copy()
+            rec.added[rec.op.well][address[rec.op.part[0]]] = True
+
+            # if needed, record that the tip must be changed here
+            if (prevrec.bestcost < rec.bestcost):
+                rec.changed = True
+
+        # print which position in the sequence has been considered (optional)
+        print(pos)
+
+
+    # PART 3: get past
+
+    # PART 3.1: find the record for the last operation with the lowest total cost
+    frecs = dprecs[-1]
+    finrec = min(frecs, key=lambda frecs: frecs.bestcost)
+
+    # PART 3.2: write this operation in fin
+    fin.append(finrec.op)
+    fin[-1].changed = finrec.changed # indicate whether the tip has to be changed
+
+    # PART 3.3: write all the prior operations into fin
+    for pos in reversed(range(1, len(dprecs))):
+        finrec = dprecs[finrec.pos - 1][finrec.previndex] # find previous operation
+        fin.insert(0, finrec.op) # write it into fin
+        fin[0].changed = finrec.changed # indicate whether the tip has to be changed
+
+
+
+# ----------------- AUXILIARY FUNCTIONS -------------------
+# get list of type DPOper operations from w
+def getdprecs(w,dprecs,reord):
+    # PART 1: get the list of all operations to be done
+    ops=[]
+    getops(w,ops,reord) # reord specifies if a reordering has to be applied (see auxil.py)
+
+
+    # PART 2: create records for every operation on all possible positions in the sequence
+    for i in range(0,len(ops)):
+        dprecs.append([])
+        for j in range(0,len(ops)):
+            dprecs[i].append(DPrecord(ops[j], w, i))
+
+
+
+# get cost of having the given operation after a potential previous one (1 if tip must be changed, 0 if not)
+def getdpcost(rec,maybeprev,dprecs,w,address,caps):
+    # if the operation has already been made, the resultant sequence is impossible
+    if(maybeprev.added[rec.op.well][address[rec.op.part[0]]]==True):
+        return np.inf
+
+    # if the part being added is different, need to change the tip
+    if(rec.op.part!=maybeprev.op.part):
+        extracost=1 # this is the cost of performing the given operation after the previous
+    else:
+        extracost=0
+
+        # check if the last well had any parts the next well does not
+        for i in range(0, len(w[0])):
+            if (w[rec.op.well][i] != rec.op.part):
+                if not (maybeprev.added[maybeprev.op.well][i] == 0 or (w[rec.op.well][i] == w[maybeprev.op.well][i] and maybeprev.added[rec.op.well][i] == 1)):
+                    extracost=1
+
+        # take into account pipette capacity, IF working with a capacitated problem
+        if(caps!=None):
+            # only need to do that if cost is ostensibly 0 and the number of operations is less than the capacity
+            if(extracost==0 and caps[rec.op.part]<=rec.pos):
+                extracost=1 # assume there is no extra space in the tip for another aliquot
+
+                # check if it is actually so; if there is space, tip does not have to be changed
+                checkrec=maybeprev
+                for i in range(0,caps[rec.op.part]-1): # go back for as long as the capacity considerations are relevant
+                    if(checkrec.changed):
+                        extracost=0
+                        break
+                    else:
+                        checkrec=dprecs[checkrec.pos-1][checkrec.previndex] # go to the record before
+
+    # return the cost of the route up to the previous record plus the cost of performing the operation in question
+    return extracost+maybeprev.bestcost
+
+
+# ----------- MAIN FUNCTION (TESTING ONLY) ------------
+def main():
+    fin = []  # final array where the operations are to be recorded
+    """
+    INPUT:
+    a) Use a manually defined well array, or
+    b) Generate 
+            change 1st argument of wgenerator to define the number of wells/constructs
+            change 4 last arguments of wgenerator to define the size of p, r, c and t part sets
+    Comment out the respective line to deselect
+    """
+
+    w = [['p1', 'r2', 'c1', 't1'],
+         ['p1', 'r2', 'c1', 't2'],
+         ['p1', 'r2', 'c1', 't1'],
+         ['p1', 'r2', 'c1', 't2']]
+
+    # w = wgenerator(48, 6, 6, 3, 4)
+
+    # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
+    ss=[]
+    w_to_subsets(w,ss)
+    reqvols = {}
+    for s in ss:
+        if(s.part[0]=='p'):
+            reqvols[s.part]=1.09
+        elif(s.part[0]=='r'):
+            reqvols[s.part]=0.33
+        elif (s.part[0] == 'c'):
+            reqvols[s.part] = 0.36
+        else:
+            reqvols[s.part] = 0.75
+    # get capacitites
+    caps=capacities(reqvols,10,1.0)
+    # PERFORMACE EVALUATION: start the timer
+    time1 = time.time()
+
+    # Call the solver. Specify the heuristic reordering used by changing reord
+    # CHANGE THE 'REORD' ARGUMENT TO APPLY AN HEURSTIC REORDERING BEFORE SOLVING...
+    dp(w, fin, caps,reord='sametogether')
+
+    # display the solution
+    dispoper(fin)
+
+    # PERFORMACE EVALUATION: print the working time
+    print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
+
+    # calculate cost based on tip change indicators of the operations
+    fincost = 0
+    for op in fin:
+        fincost += int(op.changed)
+    print('The total number of pipette tips used is (from resultant list) ' + str(fincost))
+    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
+
+# main call
+if __name__ == "__main__":
+    main()
