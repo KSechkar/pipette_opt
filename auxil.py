@@ -3,6 +3,8 @@
 # v0.2.0, 20.8.2020
 
 import numpy as np
+from copy import deepcopy
+
 
 # ------------------------------CLASS DEFINITIONS----------------------------------
 # Each part matched with the wells it is added to
@@ -35,6 +37,8 @@ class Oper:
     # for printing the part type and destination well
     def __str__(self):
         strRep = self.part + ' -> w' + str(self.well)
+        if(self.changed):
+            strRep+=' | change tip'
         return strRep
 
 
@@ -68,16 +72,33 @@ def capac(pipcap, dose, airgap):
 
 
 # -------------------------------COST FUNCTIONS------------------------------------
-# get route cost (the well/parts array w is required!)
-def route_cost_with_w(fin,w,caps):
-    # PART 1: initial preparations
+# calculate cost based on tip change indicators of the operations in the sequence
+def route_cost(fin):
+    cost=0 # initialise the cost variable
 
+    # sum the tip changing indicators (which are 1 if tip is changed, 0 otherwise)
+    for op in fin:
+        cost+=op.changed
+
+    # return the cost
+    return cost
+
+
+# get route cost independently from the tip change indicators in fin (the well/parts array w is required!)
+# use for testing
+def validate_cost(fin,w,caps):
+    # PART 1: initial preparations
     # get addresses of part types in w
     address = addrfromw(w)
 
-    # reset the tip change indicators
-    for i in range(0, len(fin)):
-        fin[i].changed = False
+    # make a copy, reset its tip change indicators
+    cfin=deepcopy(fin)
+    for i in range(0, len(cfin)):
+        cfin[i].changed = False
+
+    # array listing operations that have different tip changing status than originally given
+    # Note: even if it is non-empty, this does not necessarily mean the original caluclation is wrong
+    different=[]
 
     # create the array added (tells which parts were added to which well)
     added = np.zeros((len(w), len(w[0])),dtype=bool) # added[i][j]==True if part at address j in well i has been added
@@ -87,30 +108,28 @@ def route_cost_with_w(fin,w,caps):
 
     # PART 2.1: the first operation in fin
     cost=1 # beginning the distribuiton => new tip taken
-    fin[0].changed = True # indicate the tip's been changed
-    added[fin[0].well][address[fin[0].part[0]]] = 1 # indicate the part's been added
+    cfin[0].changed = True # indicate the tip's been changed
+    added[cfin[0].well][address[cfin[0].part[0]]] = 1 # indicate the part's been added
 
     # PART 2.2: all other operations
-    for i in range(1, len(fin)):
-        one_cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps) # get operation cost
+    for i in range(1, len(cfin)):
+        one_cost = cost_func_with_w(cfin[0:i], cfin[i], w, added, caps) # get operation cost
         cost += one_cost # add operation cost
 
-        added[fin[i].well][address[fin[i].part[0]]] = 1 # indicate the part's been added
+        added[cfin[i].well][address[cfin[i].part[0]]] = 1 # indicate the part's been added
         # if the tip's been changed (operation cost 1), indicate that
         if(one_cost==1):
-            fin[i].changed = True
+            cfin[i].changed = True
+
+        # if the independently found tip-changing indicator is different, record!
+        if (fin[i].changed != cfin[i].changed):
+            different.append((cfin[i],str(i))) # record a tuple giving the operation and its place in the sequence
+
+    # PART 3: return the cost and the array of differing operations
+    return cost, different
 
 
-    # PART 3: reset the tip change indicators
-    for i in range(0,len(fin)):
-        fin[i].changed = False
-
-
-    # PART 3: return the cost
-    return cost
-
-
-# cost of a single operation op
+# cost of a single operation op; uses the well array w and the array added giving status of the wells
 def cost_func_with_w(fin, op, w, added, caps):
     # if no operations have been performed at all, new tip obiously needed => just return 1
     if(len(fin)==0):

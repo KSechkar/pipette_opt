@@ -1,8 +1,23 @@
+# DP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
+# By Kirill Sechkar
+# v0.1.0, 23.2.21
+
+"""
+Having received the array of wells and parts w,
+for all additions to be performed records are created (different record for every position in the sequence of operations to do).
+For every record, the best (yielding the lowest number of tip changes) previous operation is determined.
+From these recordings, and optimised sequence of operations is reconstructed.
+
+The resultant sequence of operations is stored in a class Oper list fin.
+"""
+
 import time
 
+# import functions from own files
 from input_generator import wgenerator
 from auxil import *
 from statespace_methods import getops
+
 
 # ------------------------------CLASS DEFINITIONS----------------------------------
 # recording fromat used in the DP algorithm; operation, best pre, best cost of operation sequence up to this addition
@@ -185,11 +200,8 @@ def main():
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
 
     # calculate cost based on tip change indicators of the operations
-    fincost = 0
-    for op in fin:
-        fincost += int(op.changed)
-    print('The total number of pipette tips used is (from resultant list) ' + str(fincost))
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
+    print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
+    print('The total number of pipette tips used is (independent calculation) ' + str(validate_cost(fin, w, caps)[0]))
 
 # main call
 if __name__ == "__main__":

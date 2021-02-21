@@ -1,10 +1,11 @@
-# PRE-TSP METHOD REORDERINGS
+# PRE-LP METHOD REORDERINGS
 # By Kirill Sechkar
 # v0.1.0.lp, 15.7.20
 
 import numpy as np
 from tsp_lp_solver import lp_cap
 
+# import functions from own files
 from tspy import TSP
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
@@ -17,39 +18,6 @@ class Sametogether:
         self.parttype = parttype
         self.subs = []
         self.outgoing = 0
-
-
-# Each part matched with the wells it is added to
-class Ss:
-    # initialisation
-    def __init__(self, part, wellno):
-        self.part = part
-        self.wells = [wellno]
-
-    # record new well in the subset
-    def nuwell(self, wellno):
-        self.wells.append(wellno)
-
-    # for printing the subset's part type and wells
-    def __str__(self):
-        strRep = self.part + '|'
-        for i in range(0, len(self.wells)):
-            strRep = strRep + ' ' + str(self.wells[i])
-        return strRep
-
-
-# Final output format is an array of Operations - the same for ALL methods
-class Oper:
-    # initialisation
-    def __init__(self, part, well):
-        self.part = part
-        self.well = well
-        self.changed = False
-
-    # for printing the part type and destination well
-    def __str__(self):
-        strRep = self.part + ' -> w' + str(self.well)
-        return strRep
 
 
 # -------------------------------SIMPLE REORDERINGS----------------------------------

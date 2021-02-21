@@ -136,34 +136,6 @@ In moclo_transform_template.py
 
 """
 
-# -----------------------class definitions-----------------------------
-# FOR OPTIMISATION
-#operations
-class Oper:
-    def __init__(self, part, well):
-        self.part = part
-        self.well = well
-        self.changed = False
-
-    def __str__(self):  # for printing the subset's part type and wells out
-        strRep = self.part + ' -> w' + str(self.well)
-        return strRep
-
-#operation subsets - needed for LP method
-class Ss:
-    def __init__(self, part, wellno):  # initialisation
-        self.part = part
-        self.wells = [wellno]
-
-    def nuwell(self, wellno):  # record new well in the subset
-        self.wells.append(wellno)
-
-    def __str__(self):  # for printing the subset's part type and wells out
-        strRep = self.part + '|'
-        for i in range(0, len(self.wells)):
-            strRep = strRep + ' ' + str(self.wells[i])
-        return strRep
-
 
 # ---------------------START-STOP ASSEMBLY---------------------
 # Modified LevelZeroAssembler.do_assembly() function
@@ -283,13 +255,13 @@ def startstop_actionlist(assembly,method, pipette):
             greedy_tree(w, fin, 'optimistic+cap', reord, caps)
 
     # PART 2.2 Print report on solution benefits
-    cost = route_cost_with_w(fin, w, caps)
+    cost = route_cost(fin)
     savings = len(fin) - cost
     percentsavings = savings/len(fin)*100
     print('\npipette_opt: '+str(savings) + ' pipette tips saved (' + str(percentsavings) + '%)')
     print('Thus ' + str(cost) + ' tips required\n')
 
-    # PART 2.3 Record in a .json file
+    # PART 2.3 Record in a .p file
     rec('Start-Stop',w,fin,dic,caps)
 
     # PART 3 Convert internal-output operations into action list
@@ -298,30 +270,18 @@ def startstop_actionlist(assembly,method, pipette):
     action_list = backbone_action_list
     new_tip = 'once'
 
-    # PART 3.2 Define auxiliary variables
-    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
-    cost = 1
-
-    # PART 3.3 The first operation in fin
-    added[fin[0].well][address[fin[0].part[0]]] = 1
-    fin[0].changed = True
+    # PART 3.2 The first operation in fin
     part_source=dic['parts'][fin[0].part]['part_liqloc']
     part_vol = reqvols[fin[0].part]
     part_dest = dic['constructs'][fin[0].well]['con_liqloc'].copy()
 
-    # PART 3.4 All later operations
+    # PART 3.3 All later operations
     for i in range(1, len(fin)):
-        # get operation cost
-        cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
-        if (cost == 1):
-            fin[i].changed = True
-        added[fin[i].well][address[fin[i].part[0]]] = 1
+        # act accroding to whtehre the tip was changed
 
-        # act accroding to cost
-        if(cost==0): # if 0, tip is unchanged
+        if not (fin[i].changed): # if the tip is unchanged
             part_dest += dic['constructs'][fin[i].well]['con_liqloc']
-
-        else: # if 1, there is new tip, so...
+        else: # if there is a new tip...
             # record last tip's actions
             action_list+=((part_source,part_dest,part_vol,new_tip,air_gap),)
 
@@ -555,7 +515,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
             greedy_tree(w, fin, 'optimistic+cap', reord, caps)
 
     # PART 2.2 Print report on solution benefits
-    cost = route_cost_with_w(fin, w, caps)
+    cost = route_cost(fin)
     savings = len(fin) - cost
     percentsavings = savings / len(fin) * 100
     print('pipette_opt:\n')
@@ -571,28 +531,17 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     action_list = tuple()
     new_tip = 'once'
 
-    # PART 3.2 Define auxiliary variables
-    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
-
-    # PART 3.3 The first operation in fin
-    added[fin[0].well][address[fin[0].part[0]]] = 1
-    fin[0].changed = True
+    # PART 3.2 The first operation in fin
     part_source = dic['parts'][fin[0].part]['part_liqloc']
     part_vol = reqvols[fin[0].part]
     part_dest = [dic['constructs'][fin[0].well]['con_liqloc']].copy()
 
     # PART 3.4 All later operations
     for i in range(1, len(fin)):
-        # get operation cost
-        cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
-        if (cost == 1):
-            fin[i].changed = True
-        added[fin[i].well][address[fin[i].part[0]]] = 1
-
         # act accroding to cost
-        if (cost == 0):  # if 0, tip is unchanged
+        if not (fin[i].changed):  # if the tip is unchanged
             part_dest += [dic['constructs'][fin[i].well]['con_liqloc']]
-        else:  # if 1, there is new tip, so...
+        else:  # if there is a new tip...
             # record last tip's actions
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 
@@ -764,7 +713,7 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
             greedy_tree(w, fin, 'optimistic+cap', reord, caps)
 
     # PART 2.2 Print report on solution benefits
-    cost = route_cost_with_w(fin, w, caps)
+    cost = route_cost(fin)
     savings = len(fin) - cost
     percentsavings = savings / len(fin) * 100
     print('pipette_opt:\n')
@@ -777,28 +726,17 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     action_list = tuple()
     new_tip = 'once'
 
-    # PART 3.2 Define auxiliary variables
-    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
-
-    # PART 3.3 The first operation in fin
-    added[fin[0].well][address[fin[0].part[0]]] = 1
-    fin[0].changed = True
+    # PART 3.2 The first operation in fin
     part_source = dic['parts'][fin[0].part]['part_name']
     part_vol = reqvols[fin[0].part]
     part_dest = [dic['constructs'][fin[0].well]['con_name']].copy()
 
-    # PART 3.4 All later operations
+    # PART 3.3 All later operations
     for i in range(1, len(fin)):
-        # get operation cost
-        cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
-        if (cost == 1):
-            fin[i].changed = True
-        added[fin[i].well][address[fin[i].part[0]]] = 1
-
-        # act accroding to cost
-        if (cost == 0):  # if 0, tip is unchanged
+        # act according to cost
+        if not (fin[i].changed):  # if 0, tip is unchanged
             part_dest += [dic['constructs'][fin[i].well]['con_name']]
-        else:  # if 1, there is new tip, so...
+        else:  # if there is a new tip...
             # record last tip's actions
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 

@@ -1,6 +1,6 @@
-# TSP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
+# LP-BASED METHOD (VEHICLE ROUTING PROBLEM) OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.1.0, 22.7.20
+# v1.0.0, 23.2.21
 
 """
 Having received the array of wells and parts w,
@@ -21,39 +21,6 @@ from input_generator import wgenerator
 from auxil import *
 from tsp_reorder import leastout, sametogether, reorder_nns, reorder_greedy
 from tsp_lp_solver import *
-
-# ----------------------CLASS DEFINITIONS-------------------------------
-# Each part matched with the wells it is added to
-class Ss:
-    # initialisation
-    def __init__(self, part, wellno):
-        self.part = part
-        self.wells = [wellno]
-
-    # record new well in the subset
-    def nuwell(self, wellno):
-        self.wells.append(wellno)
-
-    # for printing the subset's part type and wells
-    def __str__(self):
-        strRep = self.part + '|'
-        for i in range(0, len(self.wells)):
-            strRep = strRep + ' ' + str(self.wells[i])
-        return strRep
-
-
-# Final output format is an array of Operations - the same for ALL methods
-class Oper:
-    # initialisation
-    def __init__(self, part, well):
-        self.part = part
-        self.well = well
-        self.changed = False
-
-    # for printing the part type and destination well
-    def __str__(self):
-        strRep = self.part + ' -> w' + str(self.well)
-        return strRep
 
 
 # ---------------------SOLVER FUNCTION----------------------------------
@@ -138,7 +105,9 @@ def singlesub(subset, D, fin, cap):
 
         # record operations in fin
         for chain in chains:
-            for i in range(0,len(chain)):
+            fin.append(Oper(subset.part, subset.wells[chain[0] - 1]))
+            fin[-1].changed=True
+            for i in range(1,len(chain)):
                 fin.append(Oper(subset.part, subset.wells[chain[i]-1]))
 
     # 3b): non-capacitated problem
@@ -160,10 +129,10 @@ def disp(subsets, D):
         print(subsets[i])
     print(D)
 
+
 # -----------------------MAIN (TESTING ONLY)----------0-----------------
 def main():
     fin = []  # final array where the operations are to be recorded
-    fin_old =[] # TEST
     """
     INPUT:
     a) Use a manually defined well array, or
@@ -177,7 +146,7 @@ def main():
          ['p1', 'r3', 'c2', 't2'],
          ['p2', 'r3', 'c1', 't1']]
 
-    # w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss=[]
@@ -200,13 +169,15 @@ def main():
     time1 = time.time()
 
     # Call the solver. Specify the heuristic reordering used by changing reord
-    tsp_method(w, fin, reord=None, caps=caps)
+    tsp_method(w, fin, reord='greedy', caps=caps)
 
-    #dispoper(fin)
+    # display the solution
+    dispoper(fin)
 
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-    print('The total number of pipette tips used is (independent calculation) ' + str(route_cost_with_w(fin, w, caps)))
+    print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
+    print('The total number of pipette tips used is (independent calculation) ' + str(validate_cost(fin, w, caps)[0]))
 
 # main call
 if __name__ == "__main__":

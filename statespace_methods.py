@@ -10,21 +10,6 @@ from auxil import *
 from tsp_reorder import sametogether, leastout
 
 
-# -------------------------------CLASS DEFINITIONS-------------------------------
-# Final output format is an array of Operations - the same for ALL methods
-class Oper:
-    # initialisation
-    def __init__(self, part, well):
-        self.part = part
-        self.well = well
-        self.changed = False # is True if this operation involves a tip change
-
-    # for printing the part type and destination well
-    def __str__(self):
-        strRep = self.part + ' -> w' + str(self.well)
-        return strRep
-
-
 # ---------------------------------NNs SOLVER------------------------------------
 # Nearest Neighbour tree search; the depth argument determines search depth
 def nns(w, fin, depth, reord,caps):
@@ -281,17 +266,18 @@ def main():
     # nns(w, fin, 1, reord='sametogether', caps=caps)
 
     # use depth 2 NNS to solve the problem
-    # nns(w, fin, 2, reord='sametogether', caps=caps)
+    nns(w, fin, 2, reord='sametogether', caps=caps)
 
     # use greedy algorithm on a tree to solve the problem
-    greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
+    # greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
 
+    # display the solution
     dispoper(fin)
 
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
-
-    print('The total number of pipette tips used is ' + str(route_cost_with_w(fin, w, caps)))
+    print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
+    print('The total number of pipette tips used is (independent caluclation) ' + str(validate_cost(fin, w, caps)[0]))
 
 
 if __name__ == "__main__":
