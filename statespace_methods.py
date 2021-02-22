@@ -15,18 +15,14 @@ from tsp_reorder import sametogether, leastout
 def nns(w, fin, depth, reord,caps):
     # PART 1: intial preparations
 
-    # PART 1.1: get part type addresses from w
-    address = addrfromw(w)
-
-    # PART 1.2: get an Oper list of operations to be performed
+    # PART 1.1: get an Oper list of operations to be performed
     ops = []
     getops(w, ops, reord)
     all_operations = len(ops) # get the total number of subsets
 
-    # PART 1.3: make w, address and capacity global for simplicity
-    global globw, globcaps, globaddress
+    # PART 1.3: make w and capacity global for simplicity
+    global globw, globcaps
     globw = w
-    globaddress = address
     globcaps = caps
 
     # PART 1.4: create the array added (tells which parts were added to which well)
@@ -37,7 +33,7 @@ def nns(w, fin, depth, reord,caps):
 
     # PART 2.1: first operation
     fin.append(ops[0]) # record operation
-    added[fin[0].well][address[fin[0].part[0]]] = 1  # indicate the part's been added
+    added[fin[0].well][fin[0].part[0]] = 1  # indicate the part's been added
     fin[0].changed = True # beginning the distribuiton => new tip taken => change the indicator
     ops.pop(0) # remove from the list of unperformed operations
 
@@ -48,7 +44,7 @@ def nns(w, fin, depth, reord,caps):
         nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps) # get next operation's cost
 
         fin.append(ops[nextop]) # record next operation
-        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1 #indicate the part's been added
+        added[ops[nextop].well][ops[nextop].part[0]] = 1 #indicate the part's been added
         # if the tip's been changed (operation cost 1), indicate that
         if (nextcost == 1):
             fin[-1].changed = True
@@ -65,7 +61,7 @@ def nns_oneiter_with_w(ops, fin, curdepth, depth, added):
         # go deeper (if needed and possible)
         if (curdepth < depth and len(ops) != 1):
             # change the inputs as if this operation was chosen
-            added[ops[i].well][globaddress[ops[i].part[0]]] = 1
+            added[ops[i].well][ops[i].part[0]] = 1
             fin.append(ops[i])
             fin[-1].changed=True
             ops.pop(i)
@@ -77,7 +73,7 @@ def nns_oneiter_with_w(ops, fin, curdepth, depth, added):
             ops.insert(i, fin[-1])
             fin[-1].changed = False
             fin.pop()
-            added[ops[i].well][globaddress[ops[i].part[0]]] = 0
+            added[ops[i].well][ops[i].part[0]] = 0
 
     # PART 2: act according to the determined costs
     # if the current depth is 1, return the entry with the least potential cost
@@ -95,18 +91,14 @@ def nns_oneiter_with_w(ops, fin, curdepth, depth, added):
 def greedy_tree(w, fin, heur, reord,caps):
     # PART 1: intial preparations
 
-    # PART 1.1: get part type addresses from w
-    address = addrfromw(w)
-
-    # PART 1.2: get an Oper list of operations to be performed
+    # PART 1.1: get an Oper list of operations to be performed
     ops = []
     getops(w, ops, reord)
     all_operations = len(ops)  # get the total number of subsets
 
-    # PART 1.3: make w, address and capacity global for simplicity
-    global globw, globcaps, globaddress
+    # PART 1.3: make w and capacity global for simplicity
+    global globw, globcaps
     globw = w
-    globaddress = address
     globcaps = caps
 
     # PART 1.4: create the array added (tells which parts were added to which well)
@@ -117,7 +109,7 @@ def greedy_tree(w, fin, heur, reord,caps):
 
     # PART 2.1: first operation
     fin.append(ops[0])  # record operation
-    added[fin[0].well][address[fin[0].part[0]]] = 1  # indicate the part's been added
+    added[fin[0].well][fin[0].part[0]] = 1  # indicate the part's been added
     fin[0].changed = True  # beginning the distribuiton => new tip taken => change the indicator
     ops.pop(0)  # remove from the list of unperformed operations
 
@@ -128,7 +120,7 @@ def greedy_tree(w, fin, heur, reord,caps):
         nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps)  # get next operation's cost
 
         fin.append(ops[nextop])  # record next operation
-        added[ops[nextop].well][address[ops[nextop].part[0]]] = 1  # indicate the part's been added
+        added[ops[nextop].well][ops[nextop].part[0]] = 1  # indicate the part's been added
         # if the tip's been changed (operation cost 1), indicate that
         if (nextcost == 1):
             fin[-1].changed = True
@@ -231,29 +223,29 @@ def main():
             change 4 last arguments of wgenerator to define the size of p, r, c and t part sets (this is Start-Stop assembly)
     Comment out the respective line to deselect
     """
-    w = [['p1', 'r2', 'c4', 't1'],
-         ['p2', 'r2', 'c1', 't1'],
-         ['p1', 'r3', 'c2', 't2'],
-         ['p2', 'r3', 'c1', 't1']]
+    w = [[(0, 1), (1, 2), (2, 4), (3, 1)],
+         [(0, 2), (1, 2), (2, 1), (3, 1)],
+         [(0, 1), (1, 2), (2, 2), (3, 2)],
+         [(0, 2), (1, 3), (2, 1), (3, 1)]]
 
     w = wgenerator(96, 6, 6, 3, 4)
-
-    # PERFORMACE EVALUATION: start the timer
-    time1 = time.time()
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss = []
     w_to_subsets(w, ss)
     reqvols = {}
     for s in ss:
-        if (s.part[0] == 'p'):
+        if (s.part[0] == 0):
             reqvols[s.part] = 1.09
-        elif (s.part[0] == 'r'):
+        elif (s.part[0] == 1):
             reqvols[s.part] = 0.33
-        elif (s.part[0] == 'c'):
+        elif (s.part[0] == 2):
             reqvols[s.part] = 0.36
         else:
             reqvols[s.part] = 0.75
+
+    # PERFORMACE EVALUATION: start the timer
+    time1 = time.time()
 
     # get capacitites
     caps = capacities(reqvols, 10, 1.0)
@@ -266,10 +258,10 @@ def main():
     # nns(w, fin, 1, reord='sametogether', caps=caps)
 
     # use depth 2 NNS to solve the problem
-    nns(w, fin, 2, reord='sametogether', caps=caps)
+    # nns(w, fin, 2, reord='sametogether', caps=caps)
 
     # use greedy algorithm on a tree to solve the problem
-    # greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
+    greedy_tree(w, fin, 'optimistic+cap', reord='sametogether', caps=caps)
 
     # display the solution
     dispoper(fin)

@@ -141,10 +141,10 @@ def main():
             change 4 last arguments of wgenerator to define the size of p, r, c and t part sets
     Comment out the respective line to deselect
     """
-    w = [['p1', 'r2', 'c4', 't1'],
-         ['p2', 'r2', 'c1', 't1'],
-         ['p1', 'r3', 'c2', 't2'],
-         ['p2', 'r3', 'c1', 't1']]
+    w = [[(0, 1), (1, 2), (2, 4), (3, 1)],
+         [(0, 2), (1, 2), (2, 1), (3, 1)],
+         [(0, 1), (1, 2), (2, 2), (3, 2)],
+         [(0, 2), (1, 3), (2, 1), (3, 1)]]
 
     w = wgenerator(96, 6, 6, 3, 4)
 
@@ -153,23 +153,23 @@ def main():
     w_to_subsets(w,ss)
     reqvols = {}
     for s in ss:
-        if(s.part[0]=='p'):
+        if(s.part[0]==0):
             reqvols[s.part]=1.09
-        elif(s.part[0]=='r'):
+        elif(s.part[0]==1):
             reqvols[s.part]=0.33
-        elif (s.part[0] == 'c'):
+        elif (s.part[0] == 2):
             reqvols[s.part] = 0.36
         else:
             reqvols[s.part] = 0.75
 
-    # get capacitites
-    caps=capacities(reqvols,10,1.0)
-
     # PERFORMACE EVALUATION: start the timer
     time1 = time.time()
 
+    # get capacitites
+    caps=capacities(reqvols,10,1.0)
+
     # Call the solver. Specify the heuristic reordering used by changing reord
-    tsp_method(w, fin, reord='greedy', caps=caps)
+    tsp_method(w, fin, reord=None, caps=caps)
 
     # display the solution
     dispoper(fin)

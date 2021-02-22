@@ -40,10 +40,7 @@ class DPrecord:
 def dp(w,fin,caps,reord):
     # PART 1: initial preparations
 
-    # PART 1.1: get part type addresses from w
-    address = addrfromw(w)
-
-    # PART 1.2: get array of records for every operation on all possible positions
+    # PART 1.1: get array of records for every operation on all possible positions
     dprecs = []
     getdprecs(w, dprecs, reord)
 
@@ -53,7 +50,7 @@ def dp(w,fin,caps,reord):
     for rec in dprecs[0]:
         rec.bestcost = 1 # this is the first operation, so just 1 tip used
         rec.changed = True  # this is the first operation, so a new tip is needed
-        rec.added[rec.op.well][address[rec.op.part[0]]] = True # record that the operation in question has been made
+        rec.added[rec.op.well][rec.op.part[0]] = True # record that the operation in question has been made
 
     # PART 2.2: deal with all other records
     # consider the second operation, then the third, etc.
@@ -63,7 +60,7 @@ def dp(w,fin,caps,reord):
             # find costs of making this operation the next after all possible prior operations
             dpcosts = []
             for maybeprev in dprecs[pos - 1]:
-                dpcosts.append(getdpcost(rec, maybeprev, dprecs, w, address, caps))
+                dpcosts.append(getdpcost(rec, maybeprev, dprecs, w, caps))
 
             rec.bestcost = min(dpcosts) # find the one with the best cost
             rec.previndex = dpcosts.index(rec.bestcost) # record it as the previous operation
@@ -71,7 +68,7 @@ def dp(w,fin,caps,reord):
 
             # copy the status of wells from the determined previous record and update it
             rec.added = prevrec.added.copy()
-            rec.added[rec.op.well][address[rec.op.part[0]]] = True
+            rec.added[rec.op.well][rec.op.part[0]] = True
 
             # if needed, record that the tip must be changed here
             if (prevrec.bestcost < rec.bestcost):
@@ -116,9 +113,9 @@ def getdprecs(w,dprecs,reord):
 
 
 # get cost of having the given operation after a potential previous one (1 if tip must be changed, 0 if not)
-def getdpcost(rec,maybeprev,dprecs,w,address,caps):
+def getdpcost(rec,maybeprev,dprecs,w,caps):
     # if the operation has already been made, the resultant sequence is impossible
-    if(maybeprev.added[rec.op.well][address[rec.op.part[0]]]==True):
+    if(maybeprev.added[rec.op.well][rec.op.part[0]]==True):
         return np.inf
 
     # if the part being added is different, need to change the tip
@@ -164,23 +161,23 @@ def main():
     Comment out the respective line to deselect
     """
 
-    w = [['p1', 'r2', 'c1', 't1'],
-         ['p1', 'r2', 'c1', 't2'],
-         ['p1', 'r2', 'c1', 't1'],
-         ['p1', 'r2', 'c1', 't2']]
+    w = [[(0, 1), (1, 2), (2, 4), (3, 1)],
+         [(0, 2), (1, 2), (2, 1), (3, 1)],
+         [(0, 1), (1, 2), (2, 2), (3, 2)],
+         [(0, 2), (1, 3), (2, 1), (3, 1)]]
 
-    # w = wgenerator(48, 6, 6, 3, 4)
+    w = wgenerator(96, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
-    ss=[]
-    w_to_subsets(w,ss)
+    ss = []
+    w_to_subsets(w, ss)
     reqvols = {}
     for s in ss:
-        if(s.part[0]=='p'):
-            reqvols[s.part]=1.09
-        elif(s.part[0]=='r'):
-            reqvols[s.part]=0.33
-        elif (s.part[0] == 'c'):
+        if (s.part[0] == 0):
+            reqvols[s.part] = 1.09
+        elif (s.part[0] == 1):
+            reqvols[s.part] = 0.33
+        elif (s.part[0] == 2):
             reqvols[s.part] = 0.36
         else:
             reqvols[s.part] = 0.75

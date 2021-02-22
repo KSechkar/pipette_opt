@@ -1,6 +1,8 @@
 # GENERATOR OF TEST INPUTS
 # By Kirill Sechkar
-# v0.1.0, 10.7.20
+# v1.0.0, 22.2.20
+
+# Generate random Start-Stop Assembly inputs
 
 import numpy as np
 import csv
@@ -14,10 +16,10 @@ def wgenerator(howmany_inputs, howmany_p, howmany_r, howmany_c, howmany_t):
 
     # randomly fill w
     for i in range(0, howmany_inputs):
-        w.append(['p' + str(np.random.randint(0, howmany_p)),
-                  'r' + str(np.random.randint(0, howmany_r)),
-                  'c' + str(np.random.randint(0, howmany_c)),
-                  't' + str(np.random.randint(0, howmany_t))])
+        w.append([(0, np.random.randint(0, howmany_p)),
+                  (1, np.random.randint(0, howmany_r)),
+                  (2, np.random.randint(0, howmany_c)),
+                  (3, np.random.randint(0, howmany_t))])
 
     return w
 

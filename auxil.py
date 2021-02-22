@@ -20,7 +20,7 @@ class Ss:
 
     # for printing the subset's part type and wells
     def __str__(self):
-        strRep = self.part + '|'
+        strRep = 'p'+str(self.part[0])+','+str(self.part[1]) + '|'
         for i in range(0, len(self.wells)):
             strRep = strRep + ' ' + str(self.wells[i])
         return strRep
@@ -36,7 +36,7 @@ class Oper:
 
     # for printing the part type and destination well
     def __str__(self):
-        strRep = self.part + ' -> w' + str(self.well)
+        strRep = 'p'+str(self.part[0])+','+str(self.part[1]) + ' -> w' + str(self.well)
         if(self.changed):
             strRep+=' | change tip'
         return strRep
@@ -88,8 +88,6 @@ def route_cost(fin):
 # use for testing
 def validate_cost(fin,w,caps):
     # PART 1: initial preparations
-    # get addresses of part types in w
-    address = addrfromw(w)
 
     # make a copy, reset its tip change indicators
     cfin=deepcopy(fin)
@@ -109,14 +107,14 @@ def validate_cost(fin,w,caps):
     # PART 2.1: the first operation in fin
     cost=1 # beginning the distribuiton => new tip taken
     cfin[0].changed = True # indicate the tip's been changed
-    added[cfin[0].well][address[cfin[0].part[0]]] = 1 # indicate the part's been added
+    added[cfin[0].well][cfin[0].part[0]] = 1 # indicate the part's been added
 
     # PART 2.2: all other operations
     for i in range(1, len(cfin)):
         one_cost = cost_func_with_w(cfin[0:i], cfin[i], w, added, caps) # get operation cost
         cost += one_cost # add operation cost
 
-        added[cfin[i].well][address[cfin[i].part[0]]] = 1 # indicate the part's been added
+        added[cfin[i].well][cfin[i].part[0]] = 1 # indicate the part's been added
         # if the tip's been changed (operation cost 1), indicate that
         if(one_cost==1):
             cfin[i].changed = True
@@ -222,16 +220,3 @@ def ops_to_subsets(ops, subsets):
         # if no, create a new subset
         else:
             subsets.append(Ss(op.part,op.well))
-
-# -------------------------GET PART TYPE ADDRESSES FROM W--------------------------
-# get part type addresses from w
-def addrfromw(w):
-    address = {} # create dictionary of addresses
-
-    # get addresses from the first entry in w
-    if(len(w)!=0):
-        if(len(w[0])!=0):
-            for i in range(0,len(w[0])):
-                address[w[0][i][0]] = i # assign the address to the first letter code
-
-    return address
