@@ -60,7 +60,7 @@ FOR BASIC ASSEMBLY
 
 In dnabot_app.py:
 - After all import statements, insert:
-     # Importing API from the neighbouring folder with pipette_opt project
+    # Importing API from the neighbouring folder with pipette_opt project
     # Will be different in the future (pipette_opt may become a package)
     import sys
     sys.path.append('../pipette_opt')
@@ -174,7 +174,7 @@ def startstop_actionlist(assembly,method, pipette):
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    part_pos=0 # position of a given part type in the array w
+    partpos=0 # position of a given part type in the array w
 
     # PART 1.3 Read the constructs
     for construct in assembly.current_constructs:
@@ -197,9 +197,9 @@ def startstop_actionlist(assembly,method, pipette):
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[part] = part_pos
-                partnum[part_pos] = 0
-                part_pos+=1
+                parttype[part] = partpos
+                partnum[partpos] = 0
+                partpos+=1
 
             # determine part name
             partname = parts[part].name
@@ -433,6 +433,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     letcodes = 'abcdefghijklmnopqrstuvxyz'  # one-letter ids standing in for part types
     i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
     i_addr = 0  # points to address in w of the (potential) next part type to record
+    partpos=0
 
 
     # PART 1.3 Read the constructs
@@ -455,11 +456,9 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[i] = letcodes[i_letcodes]
-                partnum[letcodes[i_letcodes]] = 0
-                address[letcodes[i_letcodes]] = i_addr
-                i_letcodes += 1
-                i_addr += 1
+                parttype[i] = partpos
+                partnum[partpos] = 0
+                partpos += 1
 
             # determine part name
             partloc = parts[i]
@@ -473,7 +472,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
                     break
 
             if (not match):  # if no, update the dictionary
-                newcode = parttype[i] + str(partnum[parttype[i]])  # determine which entry to record
+                newcode = (parttype[i],partnum[parttype[i]])  # determine which entry to record
                 dic['parts'][newcode] = {'part_liqloc': parts[i]}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
                 reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
@@ -627,7 +626,7 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    part_pos = 0  # position of a given part type in the array w
+    partpos = 0  # position of a given part type in the array w
 
     # PART 1.3 Read the constructs
     for construct in assembly.current_constructs:
@@ -650,9 +649,9 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[part] = part_pos
-                partnum[part_pos] = 0
-                part_pos += 1
+                parttype[part] = partpos
+                partnum[partpos] = 0
+                partpos += 1
 
             # determine part name
             partname = parts[part].name
