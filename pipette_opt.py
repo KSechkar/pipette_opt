@@ -19,7 +19,7 @@ Just make the following changes to assembly.py...
 
 - After all import statements, insert (if dna_assembler and pipette_opt project folders are in the same folder):
     # Importing API from the neighbouring folder with pipette_opt project
-    # Will be different in the future (maybe pipette_opt will be a package?)
+    # Will be different in the future (pipette_opt may become a package)
     import sys
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
@@ -28,12 +28,12 @@ Just make the following changes to assembly.py...
     After:
         p300 = protocol.load_instrument('p300_single', 'right', tip_racks=[tiprack_1]) 
     insert:
-        tiprack_2 = protocol.load_labware('opentrons_96_tiprack_10ul', 6)  # p10 pipette for kirill's tests
-        p10 = protocol.load_instrument('p10_single', 'left', tip_racks=[tiprack_2])  # p10 pipette for kirill's tests
+        tiprack_2 = protocol.load_labware('opentrons_96_tiprack_10ul', 6)  # for example, use p10 pipette
+        p10 = protocol.load_instrument('p10_single', 'left', tip_racks=[tiprack_2])  # for example, use p10 pipette
 
-- Line 384
+- Line 486
     Replace: total_mm = assembler.do_assembly(destination_location_manager=dest_loc_manager)
-    by:      total_mm = ppopt.startstop_do_assembly(destination_location_manager=dest_loc_manager, dna_pipette=p10, method=...)
+    by:      total_mm = ppopt.startstop_do_assembly(assembly,destination_location_manager=dest_loc_manager, dna_pipette=p10, method=...)
     
     ! method can be...
         ...'LP' (recommended, requires GUROBI optimiser)
@@ -43,14 +43,14 @@ Just make the following changes to assembly.py...
         ...'LP+nearest neighbour'
         ...'LP+iddfs depth 2'
         ...'Nearest Neighbour'
-        ...'iddfs depth 2'
+        ...'nns depth 2'
         ...'Greedy'
         ...'Nearest Neighbour+sametogether' (recommended Open Access option)
-        ...'iddfs depth 2+sametogether'
+        ...'nns depth 2+sametogether'
         ...'Greedy+sametogether'
         Note that Hub-spoke is NOT supported
     
-- Line 388
+- Line 489
     Replace: assembler.distribute_dna(pipette=p300)
     by:      ppopt.startstop_distribute_dna(assembler,pipette=p10)
 """
@@ -61,7 +61,7 @@ FOR BASIC ASSEMBLY
 In dnabot_app.py:
 - After all import statements, insert:
      # Importing API from the neighbouring folder with pipette_opt project
-    # Will be different in the future (maybe pipette_opt will be a package?)
+    # Will be different in the future (pipette_opt may become a package)
     import sys
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
@@ -93,7 +93,7 @@ FOR MOCLO ASSEMBLY
 In moclo_transform_generator.py:
 - After all import statements, insert:
     # Importing API from the neighbouring folder with pipette_opt project
-    # Will be different in the future (maybe pipette_opt will be a package?)
+    # Will be different in the future (pipette_opt may become a package)
     import sys
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
@@ -174,9 +174,7 @@ def startstop_actionlist(assembly,method, pipette):
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    letcodes = 'prctbadefghijklmnoqsuvxyz'  # one-letter ids standing in for part types
-    i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
-    i_addr = 0 # points to address in w of the (potential) next part type to record
+    part_pos=0 # position of a given part type in the array w
 
     # PART 1.3 Read the constructs
     for construct in assembly.current_constructs:
@@ -199,11 +197,9 @@ def startstop_actionlist(assembly,method, pipette):
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[part] = letcodes[i_letcodes]
-                partnum[letcodes[i_letcodes]] = 0
-                address[letcodes[i_letcodes]] = i_addr
-                i_letcodes += 1
-                i_addr += 1
+                parttype[part] = part_pos
+                partnum[part_pos] = 0
+                part_pos+=1
 
             # determine part name
             partname = parts[part].name
@@ -217,7 +213,7 @@ def startstop_actionlist(assembly,method, pipette):
                     break
 
             if (not match):  # if no, update the dictionary
-                newcode = parttype[part] + str(partnum[parttype[part]])  # determine which entry to record
+                newcode = (parttype[part],partnum[parttype[part]])  # determine which entry to record
                 dic['parts'][newcode] = {'part_name': partname,
                                          'part_liqloc': parts[part].liquid_location}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
@@ -628,58 +624,54 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     reqvols = {}  # list of required liquid volumes (needed for capacity)
 
     # PART 1.2 Declare auxiliary objects
-    ignorelist =[] # !! what would we ignore with BASIC assembly?
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    letcodes = 'abcdefghijklmnopqrstuvxyz'  # one-letter ids standing in for part types
-    i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
-    i_addr = 0  # points to address in w of the (potential) next part type to record
-
+    part_pos = 0  # position of a given part type in the array w
 
     # PART 1.3 Read the constructs
-    for construct in constructs:
+    for construct in assembly.current_constructs:
         # match well number in w with its location on the plate and construct
-        dic['constructs'][wellno] = {'con_name': construct['name']}
+        dic['constructs'][wellno] = {'con_name': construct.construct_name,
+                                     'con_liqloc': construct.liquid_location}
 
         # get parts
-        parts = construct['parts'] # get list of parts of the cinstruct
-        well_parts=[] # will store all codes of parts of current well
-        for i in range(0,len(parts)):
+        parts = construct.plasmid  # get list of parts of the construct
+        well_parts = []  # will store all codes of parts of current well
+        for part in parts.keys():
             # skip an ignored part type
             ig = False
             for ignore in ignorelist:
-                if (parts[i] == ignore):
+                if (part == ignore):
                     ig = True
                     break
-            if(ig):
+            if (ig):
                 continue
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[i] = letcodes[i_letcodes]
-                partnum[letcodes[i_letcodes]] = 0
-                address[letcodes[i_letcodes]] = i_addr
-                i_letcodes += 1
-                i_addr += 1
+                parttype[part] = part_pos
+                partnum[part_pos] = 0
+                part_pos += 1
 
             # determine part name
-            part = parts[i]
+            partname = parts[part].name
 
-            # check if such location is already in the dictionary
+            # check if such name is already in the dictionary
             match = False
             for partcode in dic['parts'].keys():
-                if (part == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
+                if (partname == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
                     well_parts.append(partcode)
                     match = True
                     break
 
             if (not match):  # if no, update the dictionary
-                newcode = parttype[i] + str(partnum[parttype[i]])  # determine which entry to record
-                dic['parts'][newcode] = {'part_name': parts[i]}  # put the entry into dictionary
+                newcode = (parttype[part], partnum[parttype[part]])  # determine which entry to record
+                dic['parts'][newcode] = {'part_name': partname,
+                                         'part_liqloc': parts[part].liquid_location}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
-                reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
-                partnum[parttype[i]] += 1  # update number of parts of this class
+                reqvols[newcode] = parts[part].required_volume  # record the required volume for the part
+                partnum[parttype[part]] += 1  # update number of parts of this class
 
         w.append(well_parts.copy())  # record parts of the latest well
         wellno += 1  # proceeding to next well
