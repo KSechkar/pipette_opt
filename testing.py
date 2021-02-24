@@ -4,6 +4,7 @@
 
 import csv
 import time
+from copy import deepcopy
 import statistics as stats
 
 from tsp_method import tsp_method
@@ -13,59 +14,104 @@ from auxil import *
 
 
 # --------------------------------MAIN---------------------------------
-def main():
-    MAXI = 97  # maximum number of wells we test+1
-    MINI = 2  # maximum number of wells we test+1
-    READ = 50  # how many inputs we read form each file
+# which specifies which algorithms are tested
+# read is how many inputs we read form each file
+# mini is the maximum number of wells we test
+# maxi is the maximum number of wells we test
+def main(which,read,mini,maxi):
+    # create a label to the filename describing the arguments
+    labelfile = which + '_'+str(read)+'_' + str(mini) + '-' + str(maxi) + '_'
 
     # make column labels
     columns = ['Number of wells']
-    for i in range(MINI, MAXI):
+    for i in range(mini, maxi):
         columns.append(str(i))
 
-    # initialise results arrays with row labels
-    means = [['Greedy'], ['Greedy+sametogether']]
-    medians = [['Greedy'], ['Greedy+sametogether']]
-    stdevs = [['Greedy'], ['Greedy+sametogether']]
+    # initialise results array with row labels
+    means = [['Nearest Neighbour'], ['NNs depth2'], ['Greedy'],
+             ['Nearest Neighbour+sametogether'], ['NNs depth2+sametogether'], ['Greedy+sametogether'],
+             ['LP'], ['LP+random'], ['LP+sametogether'], ['LP+greedy'],
+             ['DP'], ['DP+random'], ['DP+sametogether']]
+
+    # determine which algorithms to run, change results array accordingly
+    if(which=='all'):
+        torun=range(0,len(means))
+    elif(which=='statespace'):
+        for k in range(0,7):
+            means.pop(-1)
+        torun=range(0,6)
+    elif(which=='statespace'):
+        for k in range(0,6):
+            means.pop(0)
+        for k in range(0,3):
+            means.pop(-1)
+        torun=range(0,4)
+    elif(which==''):
+        for k in range(0,10):
+            means.pop(0)
+        torun=range(0,3)
+    else:
+        print('Error! Unspecified selection of algorithms')
+        exit(1)
+
+    # initialise other results array with selected algorithm names
+    medians = deepcopy(means)
+    stdevs = deepcopy(means)
+    timemeans=deepcopy(means)
+    timedevs=deepcopy(means)
 
     #get results
-    for i in range(MINI,MAXI):
+    for i in range(mini,maxi+1):
         all_sols=[]
+        all_times=[]
         for j in range(0,len(means)):
             all_sols.append([])
+            all_times.append([])
 
         # open file with inputs
-        #filename='input/100i_'+str(i)+'w_6p_6r_3c_4t.csv'
-        filename = 'input/known.csv'
+        filename='inputs/100i_'+str(i)+'w_6p_6r_3c_4t.csv'
         with open(filename,mode="r") as infile:
             infile_read = csv.reader(infile)
-            for j in range(0,READ):
+            for j in range(0,read):
                 w = nextw(infile_read)
 
-                # generate required volumes (for testing)
+                # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
                 ss = []
                 w_to_subsets(w, ss)
                 reqvols = {}
                 for s in ss:
-                    if (s.part[0] == 'p'):
+                    if (s.part[0] == 0):
                         reqvols[s.part] = 1.09
-                    elif (s.part[0] == 'r'):
+                    elif (s.part[0] == 1):
                         reqvols[s.part] = 0.33
-                    elif (s.part[0] == 'c'):
+                    elif (s.part[0] == 2):
                         reqvols[s.part] = 0.36
                     else:
                         reqvols[s.part] = 0.75
+
                 # get capacitites
                 caps = capacities(reqvols, 10, 1.0)
 
-                for itr in range(0,len(means)):
-                    # print(means[itr][0])
+                for itr in torun:
                     fin = []
-                    if(means[itr][0][0:3]=='TSP'):
-                        if(len(means[itr][0])==3):
-                            tsp_method(w,fin,reord=None,caps=caps)
+                    if(means[itr][0][0:2]=='LP'):
+                        if(len(means[itr][0])==2):
+                            timer=time.time()
+                            tsp_method(w,fin,reord=None, caps=caps)
+                            timer=time.time()-timer
                         else:
-                            tsp_method(w,fin,means[itr][0][4:],caps=caps)
+                            timer = time.time()
+                            tsp_method(w,fin,means[itr][0][3:],caps=caps)
+                            timer = time.time() - timer
+                    elif(means[itr][0][0:2]=='DP'):
+                        if (len(means[itr][0]) == 2):
+                            timer = time.time()
+                            tsp_method(w, fin, reord=None, caps=caps)
+                            timer = time.time() - timer
+                        else:
+                            timer = time.time()
+                            tsp_method(w, fin, means[itr][0][3:], caps=caps)
+                            timer = time.time() - timer
                     else:
                         #define reordering
                         if(means[itr][0][-12:]=='sametogether'):
@@ -73,35 +119,48 @@ def main():
                         else:
                             reord=None
 
-                        #get solution
+                        # get solution
                         if(means[itr][0][:7]=='Nearest'):
+                            timer = time.time()
                             nns(w,fin,1,reord,caps)
-                        elif(means[itr][0][:3]=='nns'):
+                            timer = time.time() - timer
+                        elif(means[itr][0][:3]=='NNs'):
+                            timer = time.time()
                             nns(w,fin,2,reord,caps)
+                            timer = time.time() - timer
                         elif (means[itr][0][:6] == 'Greedy'):
+                            timer = time.time()
                             greedy_tree(w, fin, 'optimistic+cap', reord,caps)
+                            timer = time.time() - timer
 
-                    #get route cost and record
-                    rc=route_cost_with_w(fin,w,caps)
+                    # get route cost and record
+                    rc=route_cost(fin,)
                     all_sols[itr].append(rc)
+                    all_times[itr].append(timer)
 
-        #get means/medians/standard devioations and record
+        # get means/medians/standard devioations and record
         for itr in range(0,len(means)):
             means[itr].append(str(stats.mean(all_sols[itr])))
             medians[itr].append(str(stats.median(all_sols[itr])))
             stdevs[itr].append(str(stats.stdev(all_sols[itr])))
+            timemeans[itr].append(str(stats.mean(all_times[itr])))
+            timedevs[itr].append(str(stats.mean(all_times[itr])))
 
-        with open('progress/greedy_log.txt',mode="w+") as progress:
-            progress.write('Case for '+str(i)+' wells processed - '+str(96-i)+' to go')
+        with open('progress/'+labelfile+'log.txt',mode="w+") as progress:
+            progress.write('Case for '+str(i)+' wells processed - '+str(maxi-i)+' to go')
 
-    #record results in output files
-    #open files
-    outmeans = open('results/greedy_means.csv', mode="w+",newline='')
+    # record results in output files
+    # open files
+    outmeans = open('results/'+labelfile+'means.csv', mode="w+",newline='')
     outmeans_w = csv.writer(outmeans, delimiter=',')
-    outmedians = open('results/greedy_medians.csv', mode="w+",newline='')
+    outmedians = open('results/'+labelfile+'medians.csv', mode="w+",newline='')
     outmedians_w = csv.writer(outmedians, delimiter=',')
-    outstdevs = open('results/greedy_stdevs.csv', mode="w+",newline='')
+    outstdevs = open('results/'+labelfile+'stdevs.csv', mode="w+",newline='')
     outstdevs_w = csv.writer(outstdevs, delimiter=',')
+    outtimemeans= open('times/'+labelfile+'timemeans.csv', mode="w+",newline='')
+    outtimemeans_w = csv.writer(outtimemeans, delimiter=',')
+    outtimedevs = open('times/' + labelfile + 'timedevs.csv', mode="w+", newline='')
+    outtimedevs_w = csv.writer(outtimedevs, delimiter=',')
 
     #put column labels
     outmeans_w.writerow(columns)
@@ -111,30 +170,22 @@ def main():
         outmeans_w.writerow(means[itr])
         outmedians_w.writerow(medians[itr])
         outstdevs_w.writerow(stdevs[itr])
+        outtimemeans_w.writerow(timemeans[itr])
+        outtimedevs_w.writerow(timedevs[itr])
 
 
 #------------------------------CREATING AND READING PREDEFINED INPUT LIST------------
-#create a list
-def inputlist(hm_inputs,hm_wells,hm_p,hm_r,hm_c,hm_t):
-    #create file name
-    filename=str(hm_inputs)+'i_'+str(hm_wells)+'w_'+str(hm_p)+'p_'+str(hm_r)+'r_'+str(hm_c)+'c_'+str(hm_t)+'t.csv'
-
-    with open(filename, mode="w+",newline='') as infile:
-        infile_write=csv.writer(infile,delimiter=',')
-        for i in range(0,hm_inputs):
-            w=wgenerator(hm_wells,hm_p,hm_r,hm_c,hm_t)
-            for j in range(0,len(w)):
-                infile_write.writerow([w[j][0],w[j][1],w[j][2],w[j][3]])
-            infile_write.writerow(['new input:'])
-
 #read next input
 def nextw(infile_read):
     w=[]
+    onewell=[(),(),(),()]
     for row in infile_read:
         if (row == ['end of input']):
             break
         else:
-            w.append(row)
+            for entry in range(0,len(row)):
+                onewell[entry] = tuple(map(int,row[entry].split(',')))
+            w.append(onewell)
 
     return w
 
@@ -176,4 +227,4 @@ def runtest(filename,hm_inputs):
 
 # -------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
-    main()
+    main('all',2,2,3)
