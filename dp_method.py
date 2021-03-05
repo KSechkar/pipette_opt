@@ -75,7 +75,7 @@ def dp(w,fin,caps,reord):
                 rec.changed = True
 
         # print which position in the sequence has been considered (optional)
-        print(pos)
+        # print(pos)
 
 
     # PART 3: get past
@@ -198,7 +198,7 @@ def main():
 
     # calculate cost based on tip change indicators of the operations
     print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
-    print('The total number of pipette tips used is (independent calculation) ' + str(validate_cost(fin, w, caps)[0]))
+    print('The total number of pipette tips used is (independent calculation) ' + str(independent_cost(fin, w, caps)[0]))
 
 # main call
 if __name__ == "__main__":

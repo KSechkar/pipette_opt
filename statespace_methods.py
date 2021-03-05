@@ -269,7 +269,7 @@ def main():
     # PERFORMANCE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
-    print('The total number of pipette tips used is (independent caluclation) ' + str(validate_cost(fin, w, caps)[0]))
+    print('The total number of pipette tips used is (independent caluclation) ' + str(independent_cost(fin, w, caps)[0]))
 
 
 if __name__ == "__main__":

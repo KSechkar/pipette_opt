@@ -86,7 +86,7 @@ def route_cost(fin):
 
 # get route cost independently from the tip change indicators in fin (the well/parts array w is required!)
 # use for testing
-def validate_cost(fin,w,caps):
+def independent_cost(fin,w,caps):
     # PART 1: initial preparations
 
     # make a copy, reset its tip change indicators

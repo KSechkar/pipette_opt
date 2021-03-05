@@ -25,7 +25,7 @@ from tsp_lp_solver import *
 
 # ---------------------SOLVER FUNCTION----------------------------------
 # solves the problem
-def tsp_method(w, fin, reord, caps):
+def tsp_method(w, fin, reord, caps, maxtime):
     # PART 1: initial preparations
 
     # PART 1.1: get the subsets
@@ -61,12 +61,15 @@ def tsp_method(w, fin, reord, caps):
     # PART 3: implement the algorithm
     for i in range(0, len(subsets)):
         # call single-subset LP solver for each subset
-        singlesub(subsets[i], D, fin, caps[subsets[i].part])
+        singlesub(subsets[i], D, fin, caps[subsets[i].part],maxtime)
+
+    # PART 4: fix redundant tip changes
+    fix_redundant(fin,w,caps)
 
 
 # ------------------SOLVER FOR ONE SUBSET-------------------------------
 # creates and solves an LP problem for
-def singlesub(subset, D, fin, cap):
+def singlesub(subset, D, fin, cap,maxtime):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -101,7 +104,7 @@ def singlesub(subset, D, fin, cap):
         if (len(subD) == 2):
             chains = [[1]]
         else:
-            chains = lp_cap(subD, cap,maxtime=None)
+            chains = lp_cap(subD, cap, maxtime=0.1)
 
         # record operations in fin
         for chain in chains:
@@ -122,6 +125,47 @@ def singlesub(subset, D, fin, cap):
         for i in range(1,len(tour)):
             fin.append(Oper(subset.part, subset.wells[tour[i]-1]))
 
+
+# -----------------CHECK & FIX REDUNDANT TIP CHANGES---------------------------
+# If the same part is in many wells, the LP method can yield unnecessary tip changes.
+# This program fixes them by calculating tip changes of the same operation list independently
+
+def fix_redundant(fin,w,caps):
+    # PART 1: initial preparations
+
+    # make a copy, reset its tip change indicators
+    cfin = deepcopy(fin)
+    for i in range(0, len(cfin)):
+        cfin[i].changed = False
+
+    # array listing operations that have different tip changing status than originally given
+    # Note: even if it is non-empty, this does not necessarily mean the original caluclation is wrong
+    different = []
+
+    # create the array added (tells which parts were added to which well)
+    added = np.zeros((len(w), len(w[0])), dtype=bool)  # added[i][j]==True if part at address j in well i has been added
+
+    # PART 2: get the cost
+
+    # PART 2.1: the first operation in cfin
+    cost = 1  # beginning the distribuiton => new tip taken
+    cfin[0].changed = True  # indicate the tip's been changed
+    added[cfin[0].well][cfin[0].part[0]] = 1  # indicate the part's been added
+
+    # PART 2.2: all other operations
+    for i in range(1, len(cfin)):
+        one_cost = cost_func_with_w(cfin[0:i], cfin[i], w, added, caps)  # get operation cost
+        cost += one_cost  # add operation cost
+
+        added[cfin[i].well][cfin[i].part[0]] = 1  # indicate the part's been added
+        # if the tip's been changed (operation cost 1), indicate that
+        if (one_cost == 1):
+            cfin[i].changed = True
+
+    # PART 3: if the independently-determined tip changes are better, use this better operation list instead
+    if(cost<route_cost(fin)):
+        for i in range(0,len(fin)):
+            fin[i]=cfin[i]
 
 # ---------------------DISPLAYING SUBSETS-------------------------------
 def disp(subsets, D):
@@ -168,8 +212,8 @@ def main():
     # get capacitites
     caps=capacities(reqvols,10,1.0)
 
-    # Call the solver. Specify the heuristic reordering used by changing reord
-    tsp_method(w, fin, reord=None, caps=caps)
+    # Call the solver. Specify the heuristic reordering used by changing reord; specify maximum optimisation time by changing maxtime
+    tsp_method(w, fin, reord=None, caps=caps, maxtime=0.1)
 
     # display the solution
     dispoper(fin)
@@ -177,7 +221,7 @@ def main():
     # PERFORMACE EVALUATION: print the working time
     print('The program took ' + str(1000 * (time.time() - time1)) + 'ms')
     print('The total number of pipette tips used is (from resultant list) ' + str(route_cost(fin)))
-    print('The total number of pipette tips used is (independent calculation) ' + str(validate_cost(fin, w, caps)[0]))
+    print('The total number of pipette tips used is (independent calculation) ' + str(independent_cost(fin, w, caps)[0]))
 
 # main call
 if __name__ == "__main__":
