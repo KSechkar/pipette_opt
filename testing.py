@@ -9,7 +9,7 @@ import statistics as stats
 import argparse
 import sys
 
-from tsp_method import tsp_method
+from lp_method import lp_method
 from statespace_methods import nns, greedy_tree
 from input_generator import wgenerator
 from auxil import *
@@ -143,20 +143,20 @@ def main():
                     if(means[itr][0][0:2]=='LP'):
                         if(len(means[itr][0])==2):
                             timer=time.time()
-                            tsp_method(w,fin,reord=None, caps=caps, maxtime=0.1)
+                            lp_method(w,fin,reord=None, caps=caps, maxtime=1)
                             timer=time.time()-timer
                         else:
                             timer = time.time()
-                            tsp_method(w,fin,means[itr][0][3:],caps=caps, maxtime=0.1)
+                            lp_method(w,fin,means[itr][0][3:],caps=caps, maxtime=1)
                             timer = time.time() - timer
                     elif(means[itr][0][0:2]=='DP'):
                         if (len(means[itr][0]) == 2):
                             timer = time.time()
-                            tsp_method(w, fin, reord=None, caps=caps, maxtime=0.1)
+                            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
                             timer = time.time() - timer
                         else:
                             timer = time.time()
-                            tsp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=0.1)
+                            lp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=1)
                             timer = time.time() - timer
                     else:
                         #define reordering
@@ -241,7 +241,7 @@ def runtest(filename,hm_inputs):
     infile = open(filename, mode="r")
     infile_read = csv.reader(infile)
     #open file to write outputs in
-    outfile= open('out_best_tsp.csv',mode="w+")
+    outfile= open('out_best_lp.csv',mode="w+")
     outfile_write=csv.writer(outfile,delimiter=',')
     #initialise output list of working times
     allsolutions=[[]]
@@ -261,9 +261,10 @@ def runtest(filename,hm_inputs):
                 greedy_tree(w,fin,'optimistic',reord)
             else:"""
             cap = capac(10, 1.5, 1)
-            tips=tsp_method(w,fin,reord,filename=None,cap=cap)
+            lp_method(w,fin,reord,filename=None,cap=cap)
+            tips=route_cost(fin)
 
-            #tsp_method(w,fin,various_reorderings[j],None)
+            #lp_method(w,fin,various_reorderings[j],None)
             allsolutions[j].append(str(tips))
         time1=1000*(time.time()-time1)
 

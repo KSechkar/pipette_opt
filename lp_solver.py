@@ -1,5 +1,5 @@
-# TSP SOLVER USING LINEAR PROGRAMMING
-# gurobi tsp solver is based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
+# LP SOLVER USING LINEAR PROGRAMMING
+# the tsp solver function is based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
 # By Kirill Sechkar
 # v0.1.1, 22.7.20
 
@@ -104,13 +104,6 @@ def lp_cap(D, cap, maxtime):
     env.setParam('OutputFlag', 0)
     env.start()
 
-    # PART 0.2: set maximum optimisation time
-    if (maxtime == None):
-        # default value:
-        mxt = 1  # optimisation time of more than 1s never lead to improved results, so is unnecessary
-    else:
-        mxt = maxtime
-
     # PART 1: initial preparations
     # PART 1.1: get the auxiliary array of node indices
     nodes = []
@@ -155,7 +148,7 @@ def lp_cap(D, cap, maxtime):
         gp.quicksum(vars[i, j] * dist[(i, j)] + vars[j, i] * dist[(j, i)] for i, j in combinations(nodes, 2)) == 0)
 
     # PART 3: optimise the model
-    m.Params.TIME_LIMIT = mxt # set optimisation time limit
+    m.Params.TIME_LIMIT = maxtime # set optimisation time limit
     m.setObjective(gp.quicksum(vars[0, c] for c in wellnodes), GRB.MINIMIZE) #set objective
     m.optimize() #optimise
 

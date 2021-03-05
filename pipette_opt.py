@@ -7,7 +7,7 @@
 from opentrons import instruments, labware
 
 from auxil import *
-from tsp_method import tsp_method
+from lp_method import lp_method
 from statespace_methods import nns, greedy_tree
 
 from vis_cont import rec
@@ -233,9 +233,9 @@ def startstop_actionlist(assembly,method, pipette):
     # PART 2.1 call algorithm specified by method
     if (method[0:2] == 'LP'): # LP-based
         if (len(method) == 2):
-            tsp_method(w, fin, reord=None, caps=caps)
+            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
-            tsp_method(w, fin, method[3:], caps=caps)
+            lp_method(w, fin, method[3:], caps=caps, maxtime=1)
     else: # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -492,9 +492,9 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     # PART 2.1 call algorithm specified by method
     if (method[0:2] == 'LP'):  # LP-based
         if (len(method) == 2):
-            tsp_method(w, fin, reord=None, caps=caps)
+            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
-            tsp_method(w, fin, method[3:], caps=caps)
+            lp_method(w, fin, method[3:], caps=caps, maxtime=1)
     else:  # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -686,9 +686,9 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     # PART 2.1 call algorithm specified by method
     if (method[0:2] == 'LP'):  # LP-based
         if (len(method) == 2):
-            tsp_method(w, fin, reord=None, caps=caps)
+            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
-            tsp_method(w, fin, method[3:], caps=caps)
+            lp_method(w, fin, method[3:], caps=caps, maxtime=1)
     else:  # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):

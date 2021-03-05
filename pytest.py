@@ -4,7 +4,7 @@
 
 from input_generator import wgenerator
 from auxil import *
-from tsp_method import tsp_method
+from lp_method import lp_method
 from statespace_methods import nns, greedy_tree
 
 # PART 1: check with a 3-part input of 96 wells wehere all parts are different
@@ -37,19 +37,19 @@ def check_all_diff():
 
     # for LP method
     fin=[]
-    tsp_method(w_all_diff,fin,None,caps)
-    assert (route_cost_with_w(fin,w_all_diff,caps) == (3*96))
+    lp_method(w_all_diff,fin,None,caps)
+    assert (independent_cost(fin,w_all_diff,caps) == (3*96))
 
     # for state-space methods
     # nns
     fin=[]
     nns(w_all_diff,fin,1,'sametogether',caps)
-    assert (route_cost_with_w(fin,w_all_diff,caps) == (3*96))
+    assert (independent_cost(fin,w_all_diff,caps) == (3*96))
 
     # greedy search
     fin=[]
     greedy_tree(w_all_diff,fin,'optimistic+cap',None,caps)
-    assert (route_cost_with_w(fin,w_all_diff,caps) == (3*96))
+    assert (independent_cost(fin,w_all_diff,caps) == (3*96))
 
 # call the checker function
 check_all_diff()
@@ -93,9 +93,9 @@ def check_known():
         fin = []
         if (m[0:2] == 'LP'):
             if (len(m) == 2):
-                tsp_method(w_known, fin, reord=None, caps=caps)
+                lp_method(w_known, fin, reord=None, caps=caps)
             else:
-                tsp_method(w_known, fin, m[3:], caps=caps)
+                lp_method(w_known, fin, m[3:], caps=caps)
         else:
             # define reordering
             if (m[0][-12:] == 'sametogether'):
@@ -114,7 +114,7 @@ def check_known():
         # the output must contain ALL operations
         assert(len(fin)==40)
         # get route cost and record
-        cost = route_cost_with_w(fin, w_known, caps)
+        cost = independent_cost(fin, w_known, caps)
         # the cost must be between the minimum and maximum possible values (which are known)
         assert ((cost <= 40) and (cost >= 31))
     

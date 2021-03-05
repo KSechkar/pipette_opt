@@ -7,7 +7,7 @@ import time
 # import functions from own files
 from input_generator import wgenerator
 from auxil import *
-from tsp_reorder import sametogether, leastout
+from lp_reorder import sametogether, leastout
 
 
 # ---------------------------------NNs SOLVER------------------------------------

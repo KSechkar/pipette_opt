@@ -3,7 +3,8 @@
 # v0.1.0.lp, 15.7.20
 
 import numpy as np
-from tsp_lp_solver import lp_cap
+from lp_solver import lp_cap
+from auxil import Ss
 
 # import functions from own files
 from tspy import TSP

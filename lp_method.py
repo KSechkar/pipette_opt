@@ -19,13 +19,13 @@ import time
 # import functions from own files
 from input_generator import wgenerator
 from auxil import *
-from tsp_reorder import leastout, sametogether, reorder_nns, reorder_greedy
-from tsp_lp_solver import *
+from lp_reorder import leastout, sametogether, reorder_nns, reorder_greedy
+from lp_solver import *
 
 
 # ---------------------SOLVER FUNCTION----------------------------------
 # solves the problem
-def tsp_method(w, fin, reord, caps, maxtime):
+def lp_method(w, fin, reord, caps, maxtime):
     # PART 1: initial preparations
 
     # PART 1.1: get the subsets
@@ -37,6 +37,10 @@ def tsp_method(w, fin, reord, caps, maxtime):
     D = np.zeros((len(w), len(w)))  # initialise
     for i in range(0, len(D)):  # forbid going from a node to itself by setting a very high cost
         D[i][i] = 1000 * len(D)
+
+    # PART 1.3: set default maximum optimisation time if none specified
+    if(maxtime==None):
+        maxtime=1
 
 
     # PART 2: reorder the subsets
@@ -96,7 +100,7 @@ def singlesub(subset, D, fin, cap,maxtime):
             else:
                 D[subset.wells[i_well]][j_D] = 1  # updating D
 
-    # PART 3: solve TSP for the subset
+    # PART 3: solve LP problem for the subset
 
     # 3a): capacitated problem
     if(cap!=None):
@@ -104,7 +108,7 @@ def singlesub(subset, D, fin, cap,maxtime):
         if (len(subD) == 2):
             chains = [[1]]
         else:
-            chains = lp_cap(subD, cap, maxtime=0.1)
+            chains = lp_cap(subD, cap, maxtime)
 
         # record operations in fin
         for chain in chains:
@@ -213,7 +217,7 @@ def main():
     caps=capacities(reqvols,10,1.0)
 
     # Call the solver. Specify the heuristic reordering used by changing reord; specify maximum optimisation time by changing maxtime
-    tsp_method(w, fin, reord=None, caps=caps, maxtime=0.1)
+    lp_method(w, fin, reord=None, caps=caps, maxtime=1)
 
     # display the solution
     dispoper(fin)
