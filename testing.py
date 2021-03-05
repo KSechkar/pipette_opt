@@ -6,6 +6,8 @@ import csv
 import time
 from copy import deepcopy
 import statistics as stats
+import argparse
+import sys
 
 from tsp_method import tsp_method
 from statespace_methods import nns, greedy_tree
@@ -18,37 +20,81 @@ from auxil import *
 # read is how many inputs we read form each file
 # mini is the maximum number of wells we test
 # maxi is the maximum number of wells we test
-def main(which,read,mini,maxi):
+def main():
+    """
+    #TEST ONLY: manually input arguments
+    which='statespace'
+    read=2
+    mini=2
+    maxi=3
+    """
+
+    # get arguments
+    arguments=getArgs()
+    which=getattr(arguments,'which')
+    read = getattr(arguments, 'read')
+    mini = getattr(arguments, 'mini')
+    maxi=getattr(arguments,'maxi')
+    #"""
+
     # create a label to the filename describing the arguments
     labelfile = which + '_'+str(read)+'_' + str(mini) + '-' + str(maxi) + '_'
 
     # make column labels
     columns = ['Number of wells']
-    for i in range(mini, maxi):
+    for i in range(mini, maxi+1):
         columns.append(str(i))
 
     # initialise results array with row labels
     means = [['Nearest Neighbour'], ['NNs depth2'], ['Greedy'],
              ['Nearest Neighbour+sametogether'], ['NNs depth2+sametogether'], ['Greedy+sametogether'],
              ['LP'], ['LP+random'], ['LP+sametogether'], ['LP+greedy'],
-             ['DP'], ['DP+random'], ['DP+sametogether']]
+             ['DP'], ['DP+random'], ['DP+sametogether'], ['DP+leastout']]
 
     # determine which algorithms to run, change results array accordingly
     if(which=='all'):
         torun=range(0,len(means))
     elif(which=='statespace'):
-        for k in range(0,7):
+        for k in range(0,8):
             means.pop(-1)
         torun=range(0,6)
-    elif(which=='statespace'):
+    elif(which=='LP'):
+        for k in range(0,6):
+            means.pop(0)
+        for k in range(0,4):
+            means.pop(-1)
+        torun=range(0,4)
+    elif(which=='DP'):
+        for k in range(0,10):
+            means.pop(0)
+        torun=range(0,4)
+    elif(which=='DPnr'):
+        for k in range(0,10):
+            means.pop(0)
+        for k in range(0,2):
+            means.pop(-1)
+        torun=range(0,2)
+    elif(which=='DPsl'):
+        for k in range(0,12):
+            means.pop(0)
+        torun = range(0, 2)
+    elif(which=='DPLPn'):
         for k in range(0,6):
             means.pop(0)
         for k in range(0,3):
+            means.pop(1)
+        for k in range(0,3):
             means.pop(-1)
-        torun=range(0,4)
-    elif(which==''):
-        for k in range(0,10):
+        torun = range(0, 2)
+    elif (which == 'ssnosametogether'):
+        for k in range(0,11):
+            means.pop(-1)
+        torun=range(0,3)
+    elif (which == 'sssametogether'):
+        for k in range(0,3):
             means.pop(0)
+        for k in range(0,8):
+            means.pop(-1)
         torun=range(0,3)
     else:
         print('Error! Unspecified selection of algorithms')
@@ -97,20 +143,20 @@ def main(which,read,mini,maxi):
                     if(means[itr][0][0:2]=='LP'):
                         if(len(means[itr][0])==2):
                             timer=time.time()
-                            tsp_method(w,fin,reord=None, caps=caps)
+                            tsp_method(w,fin,reord=None, caps=caps, maxtime=0.1)
                             timer=time.time()-timer
                         else:
                             timer = time.time()
-                            tsp_method(w,fin,means[itr][0][3:],caps=caps)
+                            tsp_method(w,fin,means[itr][0][3:],caps=caps, maxtime=0.1)
                             timer = time.time() - timer
                     elif(means[itr][0][0:2]=='DP'):
                         if (len(means[itr][0]) == 2):
                             timer = time.time()
-                            tsp_method(w, fin, reord=None, caps=caps)
+                            tsp_method(w, fin, reord=None, caps=caps, maxtime=0.1)
                             timer = time.time() - timer
                         else:
                             timer = time.time()
-                            tsp_method(w, fin, means[itr][0][3:], caps=caps)
+                            tsp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=0.1)
                             timer = time.time() - timer
                     else:
                         #define reordering
@@ -134,7 +180,7 @@ def main(which,read,mini,maxi):
                             timer = time.time() - timer
 
                     # get route cost and record
-                    rc=route_cost(fin,)
+                    rc=route_cost(fin)
                     all_sols[itr].append(rc)
                     all_times[itr].append(timer)
 
@@ -144,7 +190,7 @@ def main(which,read,mini,maxi):
             medians[itr].append(str(stats.median(all_sols[itr])))
             stdevs[itr].append(str(stats.stdev(all_sols[itr])))
             timemeans[itr].append(str(stats.mean(all_times[itr])))
-            timedevs[itr].append(str(stats.mean(all_times[itr])))
+            timedevs[itr].append(str(stats.stdev(all_times[itr])))
 
         with open('progress/'+labelfile+'log.txt',mode="w+") as progress:
             progress.write('Case for '+str(i)+' wells processed - '+str(maxi-i)+' to go')
@@ -185,7 +231,7 @@ def nextw(infile_read):
         else:
             for entry in range(0,len(row)):
                 onewell[entry] = tuple(map(int,row[entry].split(',')))
-            w.append(onewell)
+            w.append(onewell.copy())
 
     return w
 
@@ -225,6 +271,16 @@ def runtest(filename,hm_inputs):
         outfile_write.writerow(s)
 
 
+#----------------------ARGUMENT PARSING----------------------
+def getArgs(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description="Parse arguments.")
+    parser.add_argument("-w", "--which", help="Which alroithms to test.")
+    parser.add_argument("-r", "--read", type=int, help="How many inputs to read..")
+    parser.add_argument("-min", "--mini", type=int, help="From which number of wells to start.")
+    parser.add_argument("-max", "--maxi", type=int, help="At which number of wells to finish.")
+    arguments = parser.parse_args(args)
+    return arguments
+
 # -------------------------------MAIN CALL-------------------------------
 if __name__ == "__main__":
-    main('all',2,2,3)
+    main()
