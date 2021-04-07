@@ -129,25 +129,13 @@ class Vis(tk.Frame):
         for i in range(0, len(self.w)):
             self.bold.append(empty1.copy())
 
-        # reset the tip change indicators in case of previous corruption
-
-        for i in range(0, len(self.fin)):
-            self.fin[i].changed = False
-
         added = np.zeros((len(self.w), len(self.w[0])))  # tells which parts were added to which well
 
-        # get addresses of part types in w
-        address = addrfromw(self.w)
-
         # for the first operation in fin
-        cost = 1
-        self.fin[0].changed = True
-        added[self.fin[0].well][address[self.fin[0].part[0]]] = 1
+        added[self.fin[0].well][self.fin[0].part[0]] = 1
         for i in range(1, len(self.fin)):
             one_cost = cost_func_with_w(self.fin[0:i], self.fin[i], self.w, added, self.caps)
-            if (one_cost == 1):
-                self.fin[i].changed = True
-            added[self.fin[i].well][address[self.fin[i].part[0]]] = 1
+            added[self.fin[i].well][self.fin[i].part[0]] = 1
 
             if (self.fin[i].well == n and self.fin[i].changed != True):
                 backroll = 1
@@ -161,9 +149,6 @@ class Vis(tk.Frame):
                     else:
                         backroll += 1
 
-        # reset the tip change indicators
-        for i in range(0, len(self.fin)):
-            self.fin[i].changed = False
 
     def clickedwell(self, x, y):
         x -= 25

@@ -9,6 +9,7 @@ from opentrons import instruments, labware
 from auxil import *
 from lp_method import lp_method
 from statespace_methods import nns, greedy_tree
+from dp_method import dp_method
 
 from vis_cont import rec
 
@@ -98,24 +99,24 @@ In moclo_transform_generator.py:
     sys.path.append('../pipette_opt')
     import pipette_opt as ppopt
     
-- Line 45 (after calling the generate_and_save_output_plate_maps() function ). Insert (method selection the same as for Start-Stop):
+- Line 42 (after calling the generate_and_save_output_plate_maps() function ). Insert (method selection the same as for Start-Stop):
     # PIPETTE_OPT
 	# knowing that in this assembly a p10 pipette is used to distribute 2uL part aliquots, create action list
 	ppopt_action_list = ppopt.moclo_part_transfer_actions(method=..., combinations_to_make=combinations_to_make, part_vol=2, pipette_vol=10)
 
-- Line 117 - when calling the create_protocol() function, also include a ppopt_action_list=ppopt_action_list argument:
+- Line 44 - when calling the create_protocol() function, also include a ppopt_action_list=ppopt_action_list argument:
     create_protocol(dna_plate_map_dict, combinations_to_make, config['protocol_template_path'], config['output_folder_path'], ppopt_action_list=ppopt_action_list)
 
-- Line 202 - when declaring the create_protocol() function, add an extra ppopt_action list argument:
+- Line 201 - when declaring the create_protocol() function, add an extra ppopt_action list argument:
     def create_protocol(dna_plate_map_dict, combinations_to_make, protocol_template_path, output_folder_path, ppopt_action_list):
     
 - Line 212 (after writing dna_plate_dict and combinations_to_make in the script) - also write action_list in the script:
     # PIPETTE_OPT
-		protocol_file.write('action_list = ' + json.dumps(ppopt_action_list) + '\n\n')
+	protocol_file.write('action_list = ' + json.dumps(ppopt_action_list) + '\n\n')
 		
 
 In moclo_transform_template.py
-- Line 246 - COMMENT OUT the following section:
+- Line 264 - COMMENT OUT the following section:
     combinations_by_part = {}
     for i in combinations_to_make:
         name = i["name"]
@@ -125,13 +126,13 @@ In moclo_transform_template.py
             else:
                 combinations_by_part[j] = [name]
                 
-- Lines 255-278 (right after the just commented-out section):
+- Lines 275-297 (right after the just commented-out section):
     COMMENT OUT the whole section titled #This section of the code combines and mix the DNA parts according to the combination list
     
-- Line 280 (right after that):
+- Line 298 (right after that):
     insert the definition of the moclo_execute() function, which is given later in this file
     
-- Line 311 (right after the moclo_execute() definition) - call moclo_execute():
+- Line 328 (right after the moclo_execute() definition) - call moclo_execute():
     moclo_execute(action_list,p10_single)
 
 """
@@ -236,6 +237,11 @@ def startstop_actionlist(assembly,method, pipette):
             lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
             lp_method(w, fin, method[3:], caps=caps, maxtime=1)
+    elif (method[0:2] == 'DP'):  # LP-based
+        if (len(method) == 2):
+            dp_method(w, fin, reord=None, caps=caps)
+        else:
+            dp_method(w, fin, reord=method[3:], caps=caps)
     else: # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -430,10 +436,6 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    letcodes = 'abcdefghijklmnopqrstuvxyz'  # one-letter ids standing in for part types
-    i_letcodes = 0  # points to one-letter id of the (potential) next part type to record
-    i_addr = 0  # points to address in w of the (potential) next part type to record
-    partpos=0
 
 
     # PART 1.3 Read the constructs
@@ -456,9 +458,7 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[i] = partpos
-                partnum[partpos] = 0
-                partpos += 1
+                partnum[i] = 0
 
             # determine part name
             partloc = parts[i]
@@ -466,17 +466,18 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
             # check if such location is already in the dictionary
             match = False
             for partcode in dic['parts'].keys():
-                if (partloc == dic['parts'][partcode]['part_liqloc']):  # yes, record the part code in w
+                # note that the same part in two different positions in the consrtucts is considered two different parts
+                if (partloc == dic['parts'][partcode]['part_liqloc'] and i == partcode[0]):  # yes, record the part code in w
                     well_parts.append(partcode)
                     match = True
                     break
 
             if (not match):  # if no, update the dictionary
-                newcode = (parttype[i],partnum[parttype[i]])  # determine which entry to record
+                newcode = (i,partnum[i])  # determine which entry to record
                 dic['parts'][newcode] = {'part_liqloc': parts[i]}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
                 reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
-                partnum[parttype[i]] += 1  # update number of parts of this class
+                partnum[i] += 1  # update number of parts of this class
 
         w.append(well_parts.copy())  # record parts of the latest well
         wellno += 1  # proceeding to next well
@@ -495,6 +496,11 @@ def basic_part_transfer_actions_onelen(method, final_assembly_dict, part_vol, pi
             lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
             lp_method(w, fin, method[3:], caps=caps, maxtime=1)
+    elif (method[0:2] == 'DP'):  # LP-based
+        if (len(method) == 2):
+            dp_method(w, fin, reord=None, caps=caps)
+        else:
+            dp_method(w, fin, reord=method[3:], caps=caps)
     else:  # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -613,6 +619,36 @@ def moclo_part_transfer_actions(method, combinations_to_make, part_vol, pipette_
     return action_list
 
 
+# ---------------------MOCLO ASSEMBLY---------------------------
+def moclo_part_transfer_actions(method, combinations_to_make, part_vol, pipette_vol):
+    # PART 1: Group all the constructs by lengths
+    assembly_dict_by_lens={}
+    for comb in combinations_to_make:
+        # check if such length is already present
+        match = False
+        final_len = len(comb['parts'])
+        for key_by_lens in assembly_dict_by_lens.keys():
+            if(final_len == key_by_lens):
+                match = True
+                break
+
+        # if yes, add
+        if(match):
+            assembly_dict_by_lens[key_by_lens].append(comb)
+        # if no, create a new entry with this length and this construct standing for it
+        else:
+            assembly_dict_by_lens[final_len] = [comb]
+
+    # PART 2: Make the action list
+    # initialise
+    action_list = tuple()
+    # add actions for each group of subsets
+    for one_dict in assembly_dict_by_lens.values():
+        action_list += moclo_part_transfer_actions_onelen(method, one_dict, part_vol, pipette_vol)
+
+    return action_list
+
+
 def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_volume):
     # PART 1 Convert data into internal format
 
@@ -623,54 +659,51 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     reqvols = {}  # list of required liquid volumes (needed for capacity)
 
     # PART 1.2 Declare auxiliary objects
+    ignorelist =[] # !! what would we ignore with BASIC assembly?
     parttype = {}  # indices of parts to be recorded in the subsets list
     partnum = {}  # current number of each part type different species
     wellno = 0  # well counter
-    partpos = 0  # position of a given part type in the array w
+
 
     # PART 1.3 Read the constructs
-    for construct in assembly.current_constructs:
+    for construct in constructs:
         # match well number in w with its location on the plate and construct
-        dic['constructs'][wellno] = {'con_name': construct.construct_name,
-                                     'con_liqloc': construct.liquid_location}
+        dic['constructs'][wellno] = {'con_name': construct['name']}
 
         # get parts
-        parts = construct.plasmid  # get list of parts of the construct
-        well_parts = []  # will store all codes of parts of current well
-        for part in parts.keys():
+        parts = construct['parts'] # get list of parts of the cinstruct
+        well_parts=[] # will store all codes of parts of current well
+        for i in range(0,len(parts)):
             # skip an ignored part type
             ig = False
             for ignore in ignorelist:
-                if (part == ignore):
+                if (parts[i] == ignore):
                     ig = True
                     break
-            if (ig):
+            if(ig):
                 continue
 
             #  if this is the first entry, fill the address dictionary
             if (wellno == 0):
-                parttype[part] = partpos
-                partnum[partpos] = 0
-                partpos += 1
+                partnum[i] = 0
 
             # determine part name
-            partname = parts[part].name
+            part = parts[i]
 
-            # check if such name is already in the dictionary
+            # check if such location is already in the dictionary
             match = False
             for partcode in dic['parts'].keys():
-                if (partname == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
+                if (part == dic['parts'][partcode]['part_name']):  # yes, record the part code in w
                     well_parts.append(partcode)
                     match = True
                     break
 
             if (not match):  # if no, update the dictionary
-                newcode = (parttype[part], partnum[parttype[part]])  # determine which entry to record
-                dic['parts'][newcode] = {'part_name': partname,
-                                         'part_liqloc': parts[part].liquid_location}  # put the entry into dictionary
+                newcode = (i,partnum[i])  # determine which entry to record
+                dic['parts'][newcode] = {'part_name': parts[i]}  # put the entry into dictionary
                 well_parts.append(newcode)  # record part code in w
-                reqvols[newcode] = parts[part].required_volume  # record the required volume for the part
-                partnum[parttype[part]] += 1  # update number of parts of this class
+                reqvols[newcode] = part_vol  # record the required volume for the part - which is the same in BASIC
+                partnum[i] += 1  # update number of parts of this class
 
         w.append(well_parts.copy())  # record parts of the latest well
         wellno += 1  # proceeding to next well
@@ -688,7 +721,12 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
         if (len(method) == 2):
             lp_method(w, fin, reord=None, caps=caps, maxtime=1)
         else:
-            lp_method(w, fin, method[3:], caps=caps, maxtime=1)
+            lp_method(w, fin, method[3:], caps=caps,maxtime=1)
+    elif (method[0:2] == 'DP'):  # Dynamic Programming-based
+        if (len(method) == 2):
+            dp_method(w, fin, reord=None, caps=caps)
+        else:
+            dp_method(w, fin, method[3:], caps=caps)
     else:  # state-space search
         # determine reordeing
         if (method[-12:] == 'sametogether'):
@@ -717,17 +755,28 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
     action_list = tuple()
     new_tip = 'once'
 
-    # PART 3.2 The first operation in fin
+    # PART 3.2 Define auxiliary variables
+    added = np.zeros((len(w), len(w[0])))  # tells which parts were added to which well
+
+    # PART 3.3 The first operation in fin
+    added[fin[0].well][fin[0].part[0]] = 1
+    fin[0].changed = True
     part_source = dic['parts'][fin[0].part]['part_name']
     part_vol = reqvols[fin[0].part]
     part_dest = [dic['constructs'][fin[0].well]['con_name']].copy()
 
-    # PART 3.3 All later operations
+    # PART 3.4 All later operations
     for i in range(1, len(fin)):
-        # act according to cost
-        if not (fin[i].changed):  # if 0, tip is unchanged
+        # get operation cost
+        cost = cost_func_with_w(fin[0:i], fin[i], w, added, caps)
+        if (cost == 1):
+            fin[i].changed = True
+        added[fin[i].well][fin[i].part[0]] = 1
+
+        # act accroding to cost
+        if (cost == 0):  # if 0, tip is unchanged
             part_dest += [dic['constructs'][fin[i].well]['con_name']]
-        else:  # if there is a new tip...
+        else:  # if 1, there is new tip, so...
             # record last tip's actions
             action_list += ((part_source, part_dest, part_vol, new_tip, air_gap),)
 
@@ -747,10 +796,8 @@ def moclo_execute(action_list, pipette):
     for action in action_list:
         # PART 1 Get directions
         source_well, destination_wells, volume, new_tip, air_gap = action
-
         # PART 2 Get new tip
         pipette.pick_up_tip()
-
         # PART 3 Aspirate
         # 3a) with air gaps
         if(air_gap != 0):
@@ -761,23 +808,18 @@ def moclo_execute(action_list, pipette):
         # 3b) no air gaps
         else:
             pipette.aspirate(volume*len(destination_wells),find_dna(source_well,dna_plate_map_dict,dna_plate_dict))
-
-
         # PART 4 Distribute
         for i in range(0, len(destination_wells) - 1):
             pipette.dispense(volume + air_gap, find_combination(destination_wells[i],combinations_to_make))
         pipette.dispense(volume, find_combination(destination_wells[-1],combinations_to_make))
-
         # PART 5 Drop used tip
         pipette.drop_tip()
-
     return
 '''
 
 # -------------------------- MAIN (TEST ONLY) -------------------------
 def main():
-    final_assembly_dict = {"A1": ["A7", "B7", "C7", "D7", "E7"], "B1": ["F7", "B7", "G7", "H7", "E7"],
-                           "C1": ["A7", "A8", "B8", "C8", "E7"], "D1": ["F7", "A8", "G7", "D7", "E7"]}
+    final_assembly_dict={"A1": ["A7", "B7", "C7", "D7", "E7"], "B1": ["A7", "B7", "C7", "D7", "F7"], "C1": ["A7", "B7", "C7", "G7", "E7"], "D1": ["A7", "B7", "C7", "G7", "F7"], "E1": ["A7", "H7", "D7", "A8", "B8"]}
 
     PIPETTE_MOUNT = 'right'
     MAG_PLATE_TYPE = 'corning_96_wellplate_360ul_flat'
@@ -789,7 +831,7 @@ def main():
     magbead_plate = labware.load(MAG_PLATE_TYPE, MAG_PLATE_POSITION)
     destination_plate = labware.load(DESTINATION_PLATE_TYPE, TEMPDECK_SLOT, share=True)
 
-    action_list = basic_part_transfer_actions('LP+sametogether',final_assembly_dict,1.5,pipette)
+    action_list = basic_part_transfer_actions('DP',final_assembly_dict,1.5,pipette.max_volume)
     #basic_execute(action_list,pipette,magbead_plate,destination_plate)
 
 if __name__ == "__main__":
