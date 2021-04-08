@@ -1,55 +1,50 @@
 # pipette_opt
 
-Latest change: 8 August 2020
+Latest change: 8 April 2021
 
----
-FUNCTION OF EACH PROGRAM
+This repository contains the Python code implementing the algorithms for opitmising the pipette tip uptake during the distribution of DNA parts across the well array in which DNA assembly constructs are prepared. The detailed explanation of the algorithms can be found at <link to the article and/or preprint>.
 
--- Main programs (contain the methods)
-- hub_spoke.py: the hub-and-spoke method for solving the problem.
+## Algotihm implementations
+There are three main files, each of them implementing one of the three approaches to solving the tip consumption optimisation problem:
+* statespace_methods.py - searching a tree graph of states of the system
+* lp_method.py - dividing the problem into a series of Linear Programming problems, and using the [GUROBI](https://www.gurobi.com/) optimiser to solve them
+* dp_method.py - dynamic programming
+* hub_spoke.py - 'hub and spoke' method (OLD VERSION; CURRENTLY NOT SUPPORTED)
 
-- tsp_method.py: the LP-based algorithm (the name 'tsp' instead of 'lp' is a relic of the older versions).
+All of the algorithms recieve an input in an abstract format independent from the assembly standard: each DNA part is represented as a tuple (a,b), i.e. species number b in the list of parts found on position a in the assembled contructs. The dictionary _caps_  outlines how many doses of each part's solution the pipette can hold; each nested array in the  2D-list _w_ outlines the composition of a single construct to be prepared. The output is an array _fin_, where each entry stands for the addition of a given DNA part to a single construct well; it also specifies if the tip must be changed to perform this operation.
 
-- statespace_methods.py: optimisation algorithms using the state-space representation of the problem (see the 'ProblemRepresentation' document).
+The main() functions in these files allow to run the algorithms with certain inputs to test them. By changing and (un)commenting code lines in main, the algorithm can be run on a defined test input or on a randomly-generated input of up to 96 constructs.  Depending on what line of the code is uncommented, different algorithms from the same file can be tested out. By changing the reord argument, the reordering of the operation list (preprocessing of input to improve algorithm performance) can be selected.
 
+The files:
+* auxil.py
+* lp_reorder.py
+* lp_solver.py
 
--- Auxiliary programs (the methods need them to work)
-- tsp_reorder.py: the heuristic reordering algorithms that can be performed to improve the preformance of the LP method 'Sametogether' can also be used for state-space methods.
+## Adaptation for different DNA assemblies
+pipette_opt.py allows to enable pipette tip saving in existing automated DNA assembly protocols for Opentrons OT-2 for [Start-Stop](https://github.com/zoltuz/dna_assembler), [BASIC](https://github.com/BASIC-DNA-ASSEMBLY/DNA-BOT) and [MoClo](https://github.com/DAMPLAB/OT2-MoClo-Transformation-Ecoli) standards. It contains code and insturctions how to change the original protocol files. Please note that while the conversion of input into the internal abstract format and pipette tip consumption optimisation have been validated, no DNA assemblyhas been executed and tested in accordance with the obtained protocol.
 
-- tsp_lp_solver: linear programming solvers needed for the lp-based methods.
-	Function tsp_lp_gurobi() solves the TSP (problem with no pipette capacity).
-	lp_cap uses gurobi to solve the linear programming problem needed for the pipette capacity-conscious version of the 'TSP method'.
+For the Start-Stop and BASIC assembly, the resultant sequence of actions is saved in a .p file. By running the vis_cont.py programme and reading this .p file, the possible contaminations between consturct wells can be visualised.
 
-- auxil.py: auxiliary functions used by BOTH methods - output display, pipette capacity calculator; route and single operation cost functions.
+## Algorithm testing
+Randomly generated inputs in the internal abstract format can be saved in .csv files:
+* input_generator.py contains the functions randomly generating Start-Stop assembly inputs with a given number of wells and parts of each type and saving them in .csv files
+* test_inp.py for n from 2 to 96 saves a .csv file that contains 100 inputs, n constructs each
 
-
--- Adapting the algorithms
-- pipette_opt.py: adapter functions for the DNA-BOT (BASIC assembly) or dna_assembler (Start-stop assembly) automated DNA assembly packages.
-	! The Hub-spoke methods are NOT supported
-  	Work in progress - MoClo automation package adapters.
-
-- vis_cont.py: visulaises the results of the adapters' works by reading a .p file created by them
-
-
--- Programs that were used in testing
-- input_generator.py: contains fucntions that create random inputs used for algorithm testing in the folder named 'input'.
-
-- testing.py: was used to test the functions with random-generated Start-Stop assembly cases (sections 4.1-4.2 of the Technical Report).
-
----
-HOW TO TEST THE PROGRAMS?
-(check howto_manual.txt for more details)
-
--- The main() functions in all programs except for vis_cont.py are exclusively for testing.
-- main() functions of hub_spoke.py, statespace_methods.py and tsp_method.py allow to call optimisation algorithms on the input defined in them.
-  Follow the guidelines in these files' comments to alter the test input, if needed.
-
--- Contrary to what the name suggests, testing.py is generally NOT for human testing.
-   It does optimisation on numerous inputs and records the average resuts. The runtime is at least 24 hours if all numbers of wells from 2 to 96 are selected, depending on the algorithms chosen for testing.
-
--- To use the package in conjuction with DNA-BOT (BASIC assembly) or dna_assembler (Start-stop assembly) packages:
-	1. Download the assembly automation package; pipette_opt must be in the adjacent folder
-	2. Change the files in the original package as insturcted by the comments at the start of pipette_opt.py
-	3. Run the main program of the original package
-	4. Irrespectively of whether the program is a script itself or a script generator, one or multiple .p files will appear
-	5. Open the .p file using the vis_cont.py visual app. A visualisation of the well plate, allowing you to view the order in which the pipette visited the well, will apear
+The program testing.py reads the files created as test_inp.py and finds mean numbers of tips required and algorithm runtimes, along with standard deviations, saving them as .csv entries. The program should be run from command prompt with the following arguments
+* -w which algorithms to test:
+	* all - all algorithms
+	* statespace - all state-space algorithms
+		* sssametogether - state-space with 'sametogether' reordering
+		* ssno - state-space with no reordering
+	* LP - all LP algorithms
+	* DP - all dynamic programming algorithms
+		* DPn - dynamic programming with no reodering
+		* DPr - dynamic programming with random reodering
+		* DPs - dynamic programming with 'sametogether' reodering
+		* DPl - dynamic programming with 'leastout' reodering
+		* DPnr - dynamic programming with no and random reoderings
+		* DPsl - dynamic programming with 'sametogether' and 'leastout' reoderings
+	* DPLPn - LP and dymaic programming with no reordering
+* -r how many inputs to read from a single file (2 to 100)
+* -min define lower bound of the range of numbers of wells to test
+* -max define lower bound of the range of numbers of wells to test
