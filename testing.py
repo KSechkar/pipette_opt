@@ -11,6 +11,7 @@ import sys
 
 from lp_method import lp_method
 from statespace_methods import nns, greedy_tree
+from dp_method import dp_method
 from input_generator import wgenerator
 from auxil import *
 
@@ -21,9 +22,9 @@ from auxil import *
 # mini is the maximum number of wells we test
 # maxi is the maximum number of wells we test
 def main():
-    """
+    #"""
     #TEST ONLY: manually input arguments
-    which='statespace'
+    which='DPl'
     read=2
     mini=2
     maxi=3
@@ -86,7 +87,7 @@ def main():
         for k in range(0,3):
             means.pop(-1)
         torun = range(0, 2)
-    elif (which == 'ssnosametogether'):
+    elif (which == 'ssno'):
         for k in range(0,11):
             means.pop(-1)
         torun=range(0,3)
@@ -96,6 +97,28 @@ def main():
         for k in range(0,8):
             means.pop(-1)
         torun=range(0,3)
+    elif (which == 'DPn'):
+        for k in range(0,10):
+            means.pop(0)
+        for k in range(0,3):
+            means.pop(-1)
+        torun=[0]
+    elif (which == 'DPr'):
+        for k in range(0,11):
+            means.pop(0)
+        for k in range(0,2):
+            means.pop(-1)
+        torun=[0]
+    elif (which == 'DPs'):
+        for k in range(0,12):
+            means.pop(0)
+        for k in range(0,1):
+            means.pop(-1)
+        torun=[0]
+    elif (which == 'DPl'):
+        for k in range(0,13):
+            means.pop(0)
+        torun=[0]
     else:
         print('Error! Unspecified selection of algorithms')
         exit(1)
@@ -152,11 +175,11 @@ def main():
                     elif(means[itr][0][0:2]=='DP'):
                         if (len(means[itr][0]) == 2):
                             timer = time.time()
-                            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
+                            dp_method(w, fin, reord=None, caps=caps)
                             timer = time.time() - timer
                         else:
                             timer = time.time()
-                            lp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=1)
+                            dp_method(w, fin, means[itr][0][3:], caps=caps)
                             timer = time.time() - timer
                     else:
                         #define reordering

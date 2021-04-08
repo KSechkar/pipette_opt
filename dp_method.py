@@ -37,7 +37,7 @@ class DPrecord:
         return strRep
 
 # ----------------- SOLVER FUNCTION -------------------
-def dp(w,fin,caps,reord):
+def dp_method(w,fin,reord,caps):
     # PART 1: initial preparations
 
     # PART 1.1: get array of records for every operation on all possible positions
@@ -188,7 +188,7 @@ def main():
 
     # Call the solver. Specify the heuristic reordering used by changing reord
     # CHANGE THE 'REORD' ARGUMENT TO APPLY AN HEURSTIC REORDERING BEFORE SOLVING...
-    dp(w, fin, caps,reord='sametogether')
+    dp_method(w, fin, reord=None, caps=caps)
 
     # display the solution
     dispoper(fin)
