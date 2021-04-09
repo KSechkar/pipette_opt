@@ -26,6 +26,8 @@ pipette_opt.py allows to enable pipette tip saving in existing automated DNA ass
 For the Start-Stop and BASIC assembly, the resultant sequence of actions is saved in a .p file. By running the vis_cont.py programme and reading this .p file, the possible contaminations between consturct wells can be visualised.
 
 ## Algorithm testing
+The program pytest.py uses the pytest function assert to validate the algorithms' performance on an input with all different parts (hence unoptimisable tip consumption) and a small 10-construct input with known minimum and maximum possible tip uptake.
+
 Randomly generated inputs in the internal abstract format can be saved in .csv files:
 * input_generator.py contains the functions randomly generating Start-Stop assembly inputs with a given number of wells and parts of each type and saving them in .csv files
 * test_inp.py for n from 2 to 96 saves a .csv file that contains 100 inputs, n constructs each
