@@ -2,7 +2,7 @@
 
 Latest change: 8 April 2021
 
-This repository contains the Python code implementing the algorithms for opitmising the pipette tip uptake during the distribution of DNA parts across the well array in which DNA assembly constructs are prepared. The detailed explanation of the algorithms can be found at <link to the article and/or preprint>.
+This repository contains the Python 3.8 code implementing the algorithms for opitmising the pipette tip uptake during the distribution of DNA parts across the well array in which DNA assembly constructs are prepared. The detailed explanation of the algorithms can be found at <link to the article and/or preprint>.
 
 ## Algotihm implementations
 There are three main files, each of them implementing one of the three approaches to solving the tip consumption optimisation problem:
