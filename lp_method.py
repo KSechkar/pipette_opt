@@ -64,6 +64,7 @@ def lp_method(w, fin, reord, caps, maxtime):
 
     # PART 3: implement the algorithm
     for i in range(0, len(subsets)):
+        #print(str(i)+' of '+str(len(subsets))+' parts')  # uncomment if need to track the progress
         # call single-subset LP solver for each subset
         singlesub(subsets[i], D, fin, caps[subsets[i].part],maxtime)
 
@@ -141,10 +142,6 @@ def fix_redundant(fin,w,caps):
     cfin = deepcopy(fin)
     for i in range(0, len(cfin)):
         cfin[i].changed = False
-
-    # array listing operations that have different tip changing status than originally given
-    # Note: even if it is non-empty, this does not necessarily mean the original caluclation is wrong
-    different = []
 
     # create the array added (tells which parts were added to which well)
     added = np.zeros((len(w), len(w[0])), dtype=bool)  # added[i][j]==True if part at address j in well i has been added

@@ -39,6 +39,7 @@ def nns(w, fin, depth, reord,caps):
 
     # PART 2.2: all other operations
     while (len(fin) < all_operations):
+        #print(str(len(fin))+' of '+str(all_operations)+' operations')  # uncomment if need to track the progress
         # get next operation
         nextop = nns_oneiter_with_w(ops, fin, 1, depth,added)
         nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps) # get next operation's cost
@@ -115,6 +116,8 @@ def greedy_tree(w, fin, heur, reord,caps):
 
     # PART 2.2: all other operations
     while (len(fin) < all_operations):
+        print(str(len(fin))+' of '+str(all_operations)+' operations')  # uncomment if need to track the progress
+
         # get next operation
         nextop = greedy_tree_onestep(ops, fin, w, added, heur)
         nextcost = cost_func_with_w(fin, ops[nextop], w, added, caps)  # get next operation's cost

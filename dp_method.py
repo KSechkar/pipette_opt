@@ -55,6 +55,8 @@ def dp_method(w,fin,reord,caps):
     # PART 2.2: deal with all other records
     # consider the second operation, then the third, etc.
     for pos in range(1, len(dprecs)):
+        #print(str(pos) + ' of ' + str(len(dprecs)) + ' operations')  # uncomment if need to track the progress
+
         # consider all records in this position
         for rec in dprecs[pos]:
             # find costs of making this operation the next after all possible prior operations
@@ -73,9 +75,6 @@ def dp_method(w,fin,reord,caps):
             # if needed, record that the tip must be changed here
             if (prevrec.bestcost < rec.bestcost):
                 rec.changed = True
-
-        # print which position in the sequence has been considered (optional)
-        # print(pos)
 
 
     # PART 3: get past
