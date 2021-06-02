@@ -1,11 +1,8 @@
-# GENERATOR OF TEST INPUTS
+# GENERATOR OF TEST INPUTS - simply to conveniently create inputs for 2 to 96 wells in one go
 # By Kirill Sechkar
-# v0.1.1, 23.2.20
+# v0.1.0, 1.6.21
 
-import numpy as np
-import csv
-import time
-from input_generator import wgenerator, inputlist
+from input_generator import inputlist
 
 
 # main function  is only needed to test out the generation functions

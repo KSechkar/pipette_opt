@@ -1,6 +1,6 @@
 # AUXIL.PY
-# Auxiliary functions (e.g. route cost calculator, operation printer, json file reader) used by both TSP- and State Space-based methods
-# v0.2.0, 20.8.2020
+# Auxiliary functions (e.g. route cost calculator, operation printer, json file reader) used by all optimisation methods
+# v0.1.0, 29.5.2021
 
 import numpy as np
 from copy import deepcopy
@@ -40,6 +40,13 @@ class Oper:
         if(self.changed):
             strRep+=' | change tip'
         return strRep
+
+# Needed for the sametogether reordering
+class Sametogether:
+    def __init__(self, parttype):
+        self.parttype = parttype
+        self.subs = []
+        self.outgoing = 0
 
 
 # ----------------------------------RESULTS PRINTING-------------------------------
@@ -220,3 +227,90 @@ def ops_to_subsets(ops, subsets):
         # if no, create a new subset
         else:
             subsets.append(Ss(op.part,op.well))
+
+#convert the array w into operations list
+# get a list of all operations from w
+def w_to_ops(w, ops, reord):
+    # no reordering => just convert w into ops
+    if (reord == None):
+        for well in range(0, len(w)):
+            for part in range(0, len(w[well])):
+                ops.append(Oper(w[well][part], well))
+        return
+
+    # random reordering => convert into ops, randomly shuffle ops
+    elif (reord == 'random'):
+        for well in range(0, len(w)):
+            for part in range(0, len(w[well])):
+                ops.append(Oper(w[well][part], well))
+        np.random.shuffle(ops)
+        return
+
+    # subset-based reorderings => convert into subsets, apply a corresponding reordering, convert into ops
+    if (reord == 'leastout' or reord == 'sametogether' or reord == 'justsubsets'):
+        subsets = []
+        w_to_subsets(w, subsets)
+        if (reord == 'sametogether'):
+            sametogether(subsets, w)
+        else:
+            leastout(subsets,w)
+        subsets_to_ops(subsets, ops)
+
+
+# -----------------------------HEURISTIC REORDERINGS------------------------------------
+# Reorder the list of DNA parts to improve the optimisation algorithms' performance
+
+# leastout reordering: subsets with the least number of outgoing edges go first
+def leastout(subsets, w):
+    # get length of w
+    totalwells=len(w)
+
+    # determine the number of outgoing edges for each subset
+    for i in range(0, len(subsets)):
+        subsets[i].outgoing = len(subsets[i].wells) * (totalwells - len(subsets[i].wells))
+
+    # sort the list putting the
+    subsets.sort(key=lambda subsets: subsets.outgoing)
+
+
+# sametogether reordering: group subsets by part type, then sort by leastout
+def sametogether(subsets, w):
+    # PART 1: initial preparations
+
+    # PART 1.1: get dimensions of w, i.e. total number of wells and total number of part types
+    totalwells = len(w)
+    if(totalwells!=0):
+        totaltypes = len(w[0])
+    else:
+        totaltypes=0
+
+    # PART 1.2: initialise the lists of same-type part subsets
+    together=[]
+    for i in range(0,totaltypes):
+        together.append(Sametogether(w[0][i][0]))
+
+
+    # PART 2: distribute the subsets among the lists, calculating the total number of outgoing edges for each list
+    for i in range(0, len(subsets)):
+        # find into which list the subset should be put
+        for position in range(0, totaltypes):
+            if (subsets[i].part[0] == together[position].parttype):
+                break
+
+        together[position].subs.append(subsets[i])  # record the subset in the proper array
+        together[position].outgoing += len(subsets[i].wells) * (totalwells - len(
+            subsets[i].wells))  # update number of outgoing edges (for further OPTIONAL sorting)
+
+    # PART 3: sort the lists by the number of outgoing edges
+    together.sort(key=lambda together: together.outgoing)
+
+
+    # PART 4: record the rearranged subsets
+    whichlist = 0  # which of the lists is current
+    inlist = 0  # counter within the current list
+    for i in range(0, len(subsets)):
+        subsets[i] = together[whichlist].subs[inlist]
+        inlist += 1
+        if (inlist == len(together[whichlist].subs)):
+            whichlist += 1
+            inlist = 0
