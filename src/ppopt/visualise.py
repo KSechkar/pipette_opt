@@ -7,7 +7,7 @@ from tkinter import filedialog as fdialog
 from itertools import product
 import pickle
 
-from auxil import *
+from src.ppopt import *
 
 # ----------------------WINDOW (AS A CLASS DEFINITION)---------------------
 class Vis(tk.Frame):

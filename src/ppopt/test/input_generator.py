@@ -1,12 +1,11 @@
-# GENERATOR OF TEST INPUTS
+# GENERATOR OF RANDOM TEST INPUTS
 # By Kirill Sechkar
-# v1.0.0, 22.2.20
+# v0.1.0, 1.6.21
 
 # Generate random Start-Stop Assembly inputs
 
 import numpy as np
 import csv
-import time
 
 
 # simple test input generator. Out of given numbers of parts of each class, create random input mixtures
@@ -41,6 +40,7 @@ def inputlist(dir,hm_inputs, hm_wells, hm_p, hm_r, hm_c, hm_t):
                                        str(w[j][3][0])+','+str(w[j][3][1])])
             infile_write.writerow(['end of input'])
 
+# create a .csv input file where all parts in wells are different
 def alldiff(dir,hm_wells,hm_types):
     filename = 'All_different_' + str(hm_wells) + '_wells.csv'
     with open(dir+filename, mode="w+", newline='') as infile:
@@ -52,6 +52,8 @@ def alldiff(dir,hm_wells,hm_types):
             infile_write.writerow(well_entry)
         infile_write.writerow(['end of input'])
 
+
+# create a .csv input file where all wells have the same part for each type
 def allsame(dir,hm_wells,hm_types):
     filename = 'All_same_' + str(hm_wells) + '_wells.csv'
     with open(dir+filename, mode="w+", newline='') as infile:
@@ -63,9 +65,10 @@ def allsame(dir,hm_wells,hm_types):
             infile_write.writerow(well_entry)
         infile_write.writerow(['end of input'])
 
+
 # main function  is only needed to test out the generation functions
 def main():
-    allsame('inputs/',96,4)
+    allsame('inputs/', 96, 4)
 
 
 if __name__ == "__main__":

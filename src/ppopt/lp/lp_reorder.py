@@ -1,84 +1,15 @@
-# PRE-LP METHOD REORDERINGS
+# HEURISTIC REORDERINGS OF THE DNA PART LIST
+# these are the reorderings only for the LP-based method, which are based on tree search algorithms
 # By Kirill Sechkar
-# v0.1.0.lp, 15.7.20
+# v0.1.0, 30.5.21
 
 import numpy as np
-from lp_solver import lp_cap
-from auxil import Ss
-
-# import functions from own files
 from tspy import TSP
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
 
+from src.ppopt import lp_cap
 
-# --------------------------------CLASS DEFINITIONS---------------------------------
-# needed for the sametogether reordering
-class Sametogether:
-    def __init__(self, parttype):
-        self.parttype = parttype
-        self.subs = []
-        self.outgoing = 0
-
-
-# -------------------------------SIMPLE REORDERINGS----------------------------------
-# leastout reordering: subsets with the least number of outgoing edges go first
-def leastout(subsets, w):
-    # get length of w
-    totalwells=len(w)
-
-    # determine the number of outgoing edges for each subset
-    for i in range(0, len(subsets)):
-        subsets[i].outgoing = len(subsets[i].wells) * (totalwells - len(subsets[i].wells))
-
-    # sort the list putting the
-    subsets.sort(key=lambda subsets: subsets.outgoing)
-
-
-# sametogether reordering: group subsets by part type, then sort by leastout
-def sametogether(subsets, w):
-    # PART 1: initial preparations
-
-    # PART 1.1: get dimensions of w, i.e. total number of wells and total number of part types
-    totalwells = len(w)
-    if(totalwells!=0):
-        totaltypes = len(w[0])
-    else:
-        totaltypes=0
-
-    # PART 1.2: initialise the lists of same-type part subsets
-    together=[]
-    for i in range(0,totaltypes):
-        together.append(Sametogether(w[0][i][0]))
-
-
-    # PART 2: distribute the subsets among the lists, calculating the total number of outgoing edges for each list
-    for i in range(0, len(subsets)):
-        # find into which list the subset should be put
-        for position in range(0, totaltypes):
-            if (subsets[i].part[0] == together[position].parttype):
-                break
-
-        together[position].subs.append(subsets[i])  # record the subset in the proper array
-        together[position].outgoing += len(subsets[i].wells) * (totalwells - len(
-            subsets[i].wells))  # update number of outgoing edges (for further OPTIONAL sorting)
-
-    # PART 3: sort the lists by the number of outgoing edges
-    together.sort(key=lambda together: together.outgoing)
-
-
-    # PART 4: record the rearranged subsets
-    whichlist = 0  # which of the lists is current
-    inlist = 0  # counter within the current list
-    for i in range(0, len(subsets)):
-        subsets[i] = together[whichlist].subs[inlist]
-        inlist += 1
-        if (inlist == len(together[whichlist].subs)):
-            whichlist += 1
-            inlist = 0
-
-
-# ------------------------------TREE SEARCH REORDERINGS------------------------------
 # Nearest Neighbour tree search; the depth argument determines search depth
 def reorder_nns(origsubs, subsets, D, depth,caps):
     # PART 1: initial preparations
@@ -303,4 +234,5 @@ def main():
 
 
 if __name__ == "__main__":
+    from src.ppopt import Ss
     main()
