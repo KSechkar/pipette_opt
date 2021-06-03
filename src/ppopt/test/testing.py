@@ -6,7 +6,7 @@ import csv
 import time
 import statistics as stats
 import argparse
-import sys
+import sys, os
 
 from ppopt.statespace import nns, greedy_tree
 from ppopt.lp import lp_method
@@ -35,6 +35,14 @@ def main():
     mini = getattr(arguments, 'mini')
     maxi=getattr(arguments,'maxi')
     #"""
+
+    # make output directories if not present already
+    if not (os.path.exists('results')):
+        os.mkdir('results')
+    if not (os.path.exists('times')):
+        os.mkdir('times')
+    if not (os.path.exists('progress')):
+        os.mkdir('progress')
 
     # create a label to the filename describing the arguments
     labelfile = which + '_'+str(read)+'_' + str(mini) + '-' + str(maxi) + '_'
@@ -117,6 +125,12 @@ def main():
         for k in range(0,13):
             means.pop(0)
         torun=[0]
+    elif (which == 'ssr'):
+        means = [['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
+        torun = range(0, 3)
+    elif (which == 'ssl'):
+        means = [['Nearest Neighbour+leastout'], ['NNs depth2+leastout'], ['Greedy+leastout']]
+        torun = range(0, 3)
     else:
         print('Error! Unspecified selection of algorithms')
         exit(1)
@@ -181,10 +195,14 @@ def main():
                             timer = time.time() - timer
                     else:
                         #define reordering
-                        if(means[itr][0][-12:]=='sametogether'):
-                            reord='sametogether'
+                        if (means[itr][0][-12:] == 'sametogether'):
+                            reord = 'sametogether'
+                        elif (means[itr][0][-6:] == 'random'):
+                            reord = 'random'
+                        elif (means[itr][0][-8:] == 'leastout'):
+                            reord = 'leastout'
                         else:
-                            reord=None
+                            reord = None
 
                         # get solution
                         if(means[itr][0][:7]=='Nearest'):
