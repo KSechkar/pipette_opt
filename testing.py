@@ -22,7 +22,7 @@ from auxil import *
 # mini is the maximum number of wells we test
 # maxi is the maximum number of wells we test
 def main():
-    #"""
+    """
     #TEST ONLY: manually input arguments
     which='DPl'
     read=2
@@ -119,6 +119,12 @@ def main():
         for k in range(0,13):
             means.pop(0)
         torun=[0]
+    elif (which=='ssr'):
+        means=[['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
+        torun = range(0, 3)
+    elif(which=='ssl'):
+        means = [['Nearest Neighbour+leastout'], ['NNs depth2+leastout'], ['Greedy+leastout']]
+        torun = range(0, 3)
     else:
         print('Error! Unspecified selection of algorithms')
         exit(1)
@@ -185,6 +191,10 @@ def main():
                         #define reordering
                         if(means[itr][0][-12:]=='sametogether'):
                             reord='sametogether'
+                        elif(means[itr][0][-6:]=='random'):
+                            reord='random'
+                        elif(means[itr][0][-8:]=='leastout'):
+                            reord='leastout'
                         else:
                             reord=None
 
