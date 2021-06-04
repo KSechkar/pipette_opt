@@ -43,7 +43,7 @@ In moclo_transform_template.py
 
 - Line 300 (right after the just commented-out section) - insert definition of moclo_execute
 
-- Line 323 (right after newly inserted defintion) - insert:
+- Line 330 (right after newly inserted defintion) - insert:
     # PPOPT: execute optimised list of pipette actions
     moclo_execute(action_list,p10_single)
 """
@@ -227,11 +227,11 @@ def moclo_part_transfer_actions_onelen(method, constructs, part_vol, pipette_vol
 
 
 def moclo_execute(action_list, pipette):
+    # Get tip to distribute DNA parts
+    pipette.pick_up_tip()
     for action in action_list:
         # PART 1 Get directions
         source_well, destination_wells, volume, new_tip, air_gap = action
-        # PART 2 Get new tip
-        pipette.pick_up_tip()
         # PART 3 Aspirate
         # 3a) with air gaps
         if(air_gap != 0):
@@ -246,5 +246,11 @@ def moclo_execute(action_list, pipette):
         for i in range(0, len(destination_wells) - 1):
             pipette.dispense(volume + air_gap, find_combination(destination_wells[i],combinations_to_make))
         pipette.dispense(volume, find_combination(destination_wells[-1],combinations_to_make))
-        # PART 5 Drop used tip
-        pipette.drop_tip()
+        # PART 5 Wash tip to recycle it
+        p10_single.mix(2, 10, wash_0.bottom(0.5))
+        p10_single.blow_out()
+        p10_single.mix(2, 10, wash_1.bottom(0.5))
+        p10_single.blow_out()
+
+    # Drop the tip
+    pipette.drop_tip()
