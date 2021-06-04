@@ -9,23 +9,27 @@ In moclo_transform_generator.py:
     # Importing API for ppopt optimisation of pipette tip consumption
     from ppopt.moclo import moclo_part_transfer_actions
 
-- Line 42 (after calling the generate_and_save_output_plate_maps() function ). Insert (method selection the same as for Start-Stop):
-    # PIPETTE_OPT
-	# knowing that in this assembly a p10 pipette is used to distribute 2uL part aliquots, create action list
-	ppopt_action_list = ppopt.moclo_part_transfer_actions(method=..., combinations_to_make=combinations_to_make, part_vol=2, pipette_vol=10)
+- Line 40 (after calling the generate_and_save_output_plate_maps() function ). Insert (method selection the same as for Start-Stop):
+    # PPOPT: knowing that in this assembly a p10 pipette is used to distribute 2uL part aliquots, create action list
+	ppopt_action_list = moclo_part_transfer_actions(method='LP', combinations_to_make=combinations_to_make, part_vol=2, pipette_vol=10)
 
 - Line 44 - when calling the create_protocol() function, also include a ppopt_action_list=ppopt_action_list argument:
     create_protocol(dna_plate_map_dict, combinations_to_make, config['protocol_template_path'], config['output_folder_path'], ppopt_action_list=ppopt_action_list)
 
-- Line 201 - when declaring the create_protocol() function, add an extra ppopt_action list argument:
+- Line 197 - when declaring the create_protocol() function, add an extra ppopt_action_list argument:
     def create_protocol(dna_plate_map_dict, combinations_to_make, protocol_template_path, output_folder_path, ppopt_action_list):
 
-- Line 212 (after writing dna_plate_dict and combinations_to_make in the script) - also write action_list in the script:
-    # PIPETTE_OPT
+- Line 206 (after writing dna_plate_dict and combinations_to_make in the script) - also write action_list in the script:
+    # PPOPT: record optimised action list
 	protocol_file.write('action_list = ' + json.dumps(ppopt_action_list) + '\n\n')
 
 In moclo_transform_template.py
-- Line 264 - COMMENT OUT the following section:
+- After all import statements, insert:
+    # Importing API for ppopt optimisation of pipette tip consumption
+    from ppopt.moclo import moclo_execute
+
+
+- Line 268 - COMMENT OUT the following section:
     combinations_by_part = {}
     for i in combinations_to_make:
         name = i["name"]
@@ -34,16 +38,14 @@ In moclo_transform_template.py
                 combinations_by_part[j].append(name)
             else:
                 combinations_by_part[j] = [name]
-
-- Lines 275-297 (right after the just commented-out section):
+- Lines 275-298 (right after the just commented-out section):
     COMMENT OUT the whole section titled #This section of the code combines and mix the DNA parts according to the combination list
 
-- Line 298 (right after that):
-    insert the definition of the moclo_execute() function, which is given later in this file
+- Line 300 (right after the just commented-out section) - insert definition of moclo_execute
 
-- Line 328 (right after the moclo_execute() definition) - call moclo_execute():
+- Line 323 (right after newly inserted defintion) - insert:
+    # PPOPT: execute optimised list of pipette actions
     moclo_execute(action_list,p10_single)
-
 """
 
 from ppopt.statespace import nns, greedy_tree
