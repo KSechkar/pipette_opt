@@ -20,7 +20,7 @@ from ppopt.auxil import *
 # mini is the maximum number of wells we test
 # maxi is the maximum number of wells we test
 def main():
-    #"""
+    """
     #TEST ONLY: manually input arguments
     which='DPl'
     read=2
@@ -125,10 +125,10 @@ def main():
         for k in range(0,13):
             means.pop(0)
         torun=[0]
-    elif (which == 'ssr'):
-        means = [['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
+    elif (which=='ssr'):
+        means=[['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
         torun = range(0, 3)
-    elif (which == 'ssl'):
+    elif(which=='ssl'):
         means = [['Nearest Neighbour+leastout'], ['NNs depth2+leastout'], ['Greedy+leastout']]
         torun = range(0, 3)
     else:
@@ -194,7 +194,7 @@ def main():
                             dp_method(w, fin, means[itr][0][3:], caps=caps)
                             timer = time.time() - timer
                     else:
-                        #define reordering
+                        #define reorderingy
                         if (means[itr][0][-12:] == 'sametogether'):
                             reord = 'sametogether'
                         elif (means[itr][0][-6:] == 'random'):
