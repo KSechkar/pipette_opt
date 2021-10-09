@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Sechkar"
+  given-names: "Kirill"
+  orcid: "https://orcid.org/0000-0003-2300-8278"
+- family-names: "Tuza"
+  given-names: "Zoltan A."
+  orcid: "https://orcid.org/0000-0003-2896-1527"
+title: "pipette_opt - algorithmic optimisation of an automated liquid-handler's pipette tip consumptions during parallel DNA assembly setup"
+version: 1.0.0
+date-released: 2021-10-09
+url: "https://github.com/KSechkar/pipette_opt"
