@@ -1,19 +1,17 @@
 # TESTING AND COMPARING VARIOUS METHODS
 # By Kirill Sechkar
-# v0.0.3, 8.7.20
+# v0.1.0, 1.6.21
 
 import csv
 import time
-from copy import deepcopy
 import statistics as stats
 import argparse
-import sys
+import sys, os
 
-from lp_method import lp_method
-from statespace_methods import nns, greedy_tree
-from dp_method import dp_method
-from input_generator import wgenerator
-from auxil import *
+from ppopt.statespace import nns, greedy_tree
+from ppopt.lp import lp_method
+from ppopt.dp import dp_method
+from ppopt.auxil import *
 
 
 # --------------------------------MAIN---------------------------------
@@ -37,6 +35,14 @@ def main():
     mini = getattr(arguments, 'mini')
     maxi=getattr(arguments,'maxi')
     #"""
+
+    # make output directories if not present already
+    if not (os.path.exists('results')):
+        os.mkdir('results')
+    if not (os.path.exists('times')):
+        os.mkdir('times')
+    if not (os.path.exists('progress')):
+        os.mkdir('progress')
 
     # create a label to the filename describing the arguments
     labelfile = which + '_'+str(read)+'_' + str(mini) + '-' + str(maxi) + '_'
@@ -188,15 +194,15 @@ def main():
                             dp_method(w, fin, means[itr][0][3:], caps=caps)
                             timer = time.time() - timer
                     else:
-                        #define reordering
-                        if(means[itr][0][-12:]=='sametogether'):
-                            reord='sametogether'
-                        elif(means[itr][0][-6:]=='random'):
-                            reord='random'
-                        elif(means[itr][0][-8:]=='leastout'):
-                            reord='leastout'
+                        #define reorderingy
+                        if (means[itr][0][-12:] == 'sametogether'):
+                            reord = 'sametogether'
+                        elif (means[itr][0][-6:] == 'random'):
+                            reord = 'random'
+                        elif (means[itr][0][-8:] == 'leastout'):
+                            reord = 'leastout'
                         else:
-                            reord=None
+                            reord = None
 
                         # get solution
                         if(means[itr][0][:7]=='Nearest'):
@@ -267,42 +273,6 @@ def nextw(infile_read):
             w.append(onewell.copy())
 
     return w
-
-
-def runtest(filename,hm_inputs):
-    #open file with inputs
-    infile = open(filename, mode="r")
-    infile_read = csv.reader(infile)
-    #open file to write outputs in
-    outfile= open('out_best_lp.csv',mode="w+")
-    outfile_write=csv.writer(outfile,delimiter=',')
-    #initialise output list of working times
-    allsolutions=[[]]
-    reord='sametogether'
-    # various_reorderings=['greedy']
-    #read inputs one-by-one and get solutions
-    for i in range(hm_inputs):
-        time1=time.time()
-        for j in range(0,len(allsolutions)):
-            print(' '+str(j))
-            fin=[]
-            w = nextw(infile_read)
-
-            """if(j==0):
-                nns(w,fin,1,True,reord)
-            elif(j==1):
-                greedy_tree(w,fin,'optimistic',reord)
-            else:"""
-            cap = capac(10, 1.5, 1)
-            lp_method(w,fin,reord,filename=None,cap=cap)
-            tips=route_cost(fin)
-
-            #lp_method(w,fin,various_reorderings[j],None)
-            allsolutions[j].append(str(tips))
-        time1=1000*(time.time()-time1)
-
-    for s in allsolutions:
-        outfile_write.writerow(s)
 
 
 #----------------------ARGUMENT PARSING----------------------

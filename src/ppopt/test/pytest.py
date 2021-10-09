@@ -1,11 +1,11 @@
-# CHECKING BASIC FUNCTIONS BY PYETEST
+# CHECKING BASIC FUNCTIONS BY PYTEST
 # By Kirill Sechkar
-# v0.1.0, 9.4.21
+# v0.1.0, 1.6.21
 
-from auxil import *
-from lp_method import lp_method
-from dp_method import dp_method
-from statespace_methods import nns, greedy_tree
+from ppopt.statespace import nns, greedy_tree
+from ppopt.lp import lp_method
+from ppopt.dp import dp_method
+from ppopt.auxil import *
 
 
 # -----------------FUNCTION DEFINITIONS------------------

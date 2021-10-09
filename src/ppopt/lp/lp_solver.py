@@ -1,10 +1,7 @@
 # LP SOLVER USING LINEAR PROGRAMMING
 # the tsp solver function is based on gurobi.github.io/modeling-examples/traveling_salesman/tsp.html
 # By Kirill Sechkar
-# v0.1.1, 22.7.20
-
-import numpy as np
-import time
+# v0.1.10, 30.5.21
 
 import gurobipy as gp
 from gurobipy import GRB
@@ -194,10 +191,11 @@ def main():
             surelymore += j
     for i in range(0, len(A)):
         A[i][i] = surelymore
-    # t1=time.time()
+    t1=time.time()
     print(lp_cap(A,2,0.1))
-    # print(time.time()-t1)
+    print(time.time()-t1)
 
 
 if __name__ == "__main__":
-        main()
+    import time
+    main()

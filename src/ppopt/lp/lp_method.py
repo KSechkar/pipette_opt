@@ -13,14 +13,9 @@ graph whose edge costs tell if a pipette tip is necessary between two wells (des
 The resultant sequence of operations is recorded in a class Oper list fin.
 """
 
-import numpy as np
-import time
-
-# import functions from own files
-from input_generator import wgenerator
-from auxil import *
-from lp_reorder import leastout, sametogether, reorder_nns, reorder_greedy
-from lp_solver import *
+from ppopt.auxil import *
+from .lp_reorder import reorder_nns, reorder_greedy
+from .lp_solver import *
 
 
 # ---------------------SOLVER FUNCTION----------------------------------
@@ -44,23 +39,24 @@ def lp_method(w, fin, reord, caps, maxtime):
 
 
     # PART 2: reorder the subsets
-    if (reord == 'random'):  # ...randomly
-        np.random.shuffle(subsets)
-    elif (reord == 'random with time seed'):  # ...randomly using time as a seed
-        np.random.RandomState(seed=round(time.time())).shuffle(subsets)
-    elif (reord == 'leastout'):  # ...leastout
-        leastout(subsets, w)
-    elif (reord == 'sametogether'):  # ...sametogether
-        sametogether(subsets, w)
-    elif(reord!=None):  # (various state-space reorderings)
-        origsubs = subsets.copy()
-        subsets = []
-        if (reord == 'nearest neighbour'):  # ...nearest neighbour algorithm (i.e. nns depth 1)
-            reorder_nns(origsubs, subsets, D.copy(), 1, caps)
-        elif (reord == 'nns depth 2'):  # ...nns depth 2
-            reorder_nns(origsubs, subsets, D.copy(), 2, caps)
-        elif (reord == 'greedy'):  # ...greedy tree search
-            reorder_greedy(origsubs, subsets, D.copy(), 'countall',caps)
+    if(reord!=None):
+        if (reord == 'random'):  # ...randomly
+            np.random.shuffle(subsets)
+        elif (reord == 'random with time seed'):  # ...randomly using time as a seed
+            np.random.RandomState(seed=round(time.time())).shuffle(subsets)
+        elif (reord == 'leastout'):  # ...leastout
+            leastout(subsets, w)
+        elif (reord == 'sametogether'):  # ...sametogether
+            sametogether(subsets, w)
+        elif((reord[0:3]=='nns') or (reord=='greedy')):  # (various state-space reorderings)
+            origsubs = subsets.copy()
+            subsets = []
+            if (reord == 'nns'):  # ...nearest neighbour algorithm (i.e. nns depth 1)
+                reorder_nns(origsubs, subsets, D.copy(), 1, caps)
+            elif (reord == 'nns depth 2'):  # ...nns depth 2
+                reorder_nns(origsubs, subsets, D.copy(), 2, caps)
+            elif (reord == 'greedy'):  # ...greedy tree search
+                reorder_greedy(origsubs, subsets, D.copy(), 'countall',caps)
 
     # PART 3: implement the algorithm
     for i in range(0, len(subsets)):
@@ -214,7 +210,7 @@ def main():
     caps=capacities(reqvols,10,1.0)
 
     # Call the solver. Specify the heuristic reordering used by changing reord; specify maximum optimisation time by changing maxtime
-    lp_method(w, fin, reord=None, caps=caps, maxtime=1)
+    lp_method(w, fin, reord='sametogether', caps=caps, maxtime=1)
 
     # display the solution
     dispoper(fin)
@@ -226,5 +222,9 @@ def main():
 
 # main call
 if __name__ == "__main__":
+    # import necessary modules for independent test running
+    import numpy as np
+    import time
+    from src.ppopt import wgenerator
     main()
 

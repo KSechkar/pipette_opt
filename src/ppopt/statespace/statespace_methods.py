@@ -2,12 +2,7 @@
 # By Kirill Sechkar
 # v0.1.0, 22.7.20
 
-import time
-
-# import functions from own files
-from input_generator import wgenerator
-from auxil import *
-from lp_reorder import sametogether, leastout
+from ppopt.auxil import *
 
 
 # ---------------------------------NNs SOLVER------------------------------------
@@ -17,7 +12,7 @@ def nns(w, fin, depth, reord,caps):
 
     # PART 1.1: get an Oper list of operations to be performed
     ops = []
-    getops(w, ops, reord)
+    w_to_ops(w, ops, reord)
     all_operations = len(ops) # get the total number of subsets
 
     # PART 1.3: make w and capacity global for simplicity
@@ -94,7 +89,7 @@ def greedy_tree(w, fin, heur, reord,caps):
 
     # PART 1.1: get an Oper list of operations to be performed
     ops = []
-    getops(w, ops, reord)
+    w_to_ops(w, ops, reord)
     all_operations = len(ops)  # get the total number of subsets
 
     # PART 1.3: make w and capacity global for simplicity
@@ -185,35 +180,6 @@ def h_tree(state, unstate, heur):
         return est_cost
 
 
-# ------------------------------AUXILIARY FUNCTIONS-------------------------------
-# get a list of all operations from w
-def getops(w, ops, reord):
-    # no reordering => just convert w into ops
-    if (reord == None):
-        for well in range(0, len(w)):
-            for part in range(0, len(w[well])):
-                ops.append(Oper(w[well][part], well))
-        return
-
-    # random reordering => convert into ops, randomly shuffle ops
-    elif (reord == 'random'):
-        for well in range(0, len(w)):
-            for part in range(0, len(w[well])):
-                ops.append(Oper(w[well][part], well))
-        np.random.shuffle(ops)
-        return
-
-    # subset-based reorderings => convert into subsets, apply a corresponding reordering, convert into ops
-    if (reord == 'leastout' or reord == 'sametogether' or reord == 'justsubsets'):
-        subsets = []
-        w_to_subsets(w, subsets)
-        if (reord == 'sametogether'):
-            sametogether(subsets, w)
-        else:
-            leastout(subsets,w)
-        subsets_to_ops(subsets, ops)
-
-
 # -------------------------------MAIN (TESTING ONLY!)-----------------------------
 def main():
     fin = []  # final array where the operations are to be recorded
@@ -276,4 +242,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # import necessary modules for independent test running
+    import time
+    from src.ppopt import wgenerator
     main()

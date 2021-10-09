@@ -1,6 +1,6 @@
 # DP-BASED METHOD OF SOLVING THE PIPETTE TIP CHANGES OPTIMISATION PROBLEM
 # By Kirill Sechkar
-# v0.1.0, 23.2.21
+# v0.1.0, 29.5.21
 
 """
 Having received the array of wells and parts w,
@@ -11,13 +11,7 @@ From these recordings, and optimised sequence of operations is reconstructed.
 The resultant sequence of operations is stored in a class Oper list fin.
 """
 
-import time
-
-# import functions from own files
-from input_generator import wgenerator
-from auxil import *
-from statespace_methods import getops
-
+from ppopt.auxil import *
 
 # ------------------------------CLASS DEFINITIONS----------------------------------
 # recording fromat used in the DP algorithm; operation, best pre, best cost of operation sequence up to this addition
@@ -100,8 +94,7 @@ def dp_method(w,fin,reord,caps):
 def getdprecs(w,dprecs,reord):
     # PART 1: get the list of all operations to be done
     ops=[]
-    getops(w,ops,reord) # reord specifies if a reordering has to be applied (see auxil.py)
-
+    w_to_ops(w,ops,reord) # reord specifies if a reordering has to be applied (see auxil.py)
 
     # PART 2: create records for every operation on all possible positions in the sequence
     for i in range(0,len(ops)):
@@ -165,7 +158,7 @@ def main():
          [(0, 1), (1, 2), (2, 2), (3, 2)],
          [(0, 2), (1, 3), (2, 1), (3, 1)]]
 
-    w = wgenerator(96, 6, 6, 3, 4)
+    w = wgenerator(18, 6, 6, 3, 4)
 
     # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
     ss = []
@@ -201,4 +194,9 @@ def main():
 
 # main call
 if __name__ == "__main__":
+    # import necessary modules for independent test running
+    import time
+    from src.ppopt import wgenerator
+
+    #call main function
     main()
