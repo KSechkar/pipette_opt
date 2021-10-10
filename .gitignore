@@ -236,5 +236,6 @@ dmypy.json
 
 *.json
 *.csv
+!Start-Stop_Assembly_Random_Inputs.csv
 *.xml
 *.xlsx

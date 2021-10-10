@@ -14,28 +14,8 @@ from ppopt.dp import dp_method
 from ppopt.auxil import *
 
 
-# --------------------------------MAIN---------------------------------
-# which specifies which algorithms are tested
-# read is how many inputs we read form each file
-# mini is the maximum number of wells we test
-# maxi is the maximum number of wells we test
-def main():
-    """
-    #TEST ONLY: manually input arguments
-    which='DPl'
-    read=2
-    mini=2
-    maxi=3
-    """
-
-    # get arguments
-    arguments=getArgs()
-    which=getattr(arguments,'which')
-    read = getattr(arguments, 'read')
-    mini = getattr(arguments, 'mini')
-    maxi=getattr(arguments,'maxi')
-    #"""
-
+#----------------------------PERFORM TESTING----------------------------
+def test(inputname,which,read,mini,maxi):
     # make output directories if not present already
     if not (os.path.exists('results')):
         os.mkdir('results')
@@ -45,11 +25,11 @@ def main():
         os.mkdir('progress')
 
     # create a label to the filename describing the arguments
-    labelfile = which + '_'+str(read)+'_' + str(mini) + '-' + str(maxi) + '_'
+    labelfile = (inputname.split('/')[-1]).split('.')[0]
 
     # make column labels
     columns = ['Number of wells']
-    for i in range(mini, maxi+1):
+    for i in range(mini, maxi + 1):
         columns.append(str(i))
 
     # initialise results array with row labels
@@ -59,76 +39,82 @@ def main():
              ['DP'], ['DP+random'], ['DP+sametogether'], ['DP+leastout']]
 
     # determine which algorithms to run, change results array accordingly
-    if(which=='all'):
-        torun=range(0,len(means))
-    elif(which=='statespace'):
-        for k in range(0,8):
+    if (which == 'all'):
+        torun = range(0, len(means))
+    elif (which == 'statespace'):
+        for k in range(0, 8):
             means.pop(-1)
-        torun=range(0,6)
-    elif(which=='LP'):
-        for k in range(0,6):
+        torun = range(0, 6)
+    elif (which == 'LP'):
+        for k in range(0, 6):
             means.pop(0)
-        for k in range(0,4):
+        for k in range(0, 4):
             means.pop(-1)
-        torun=range(0,4)
-    elif(which=='DP'):
-        for k in range(0,10):
+        torun = range(0, 4)
+    elif (which == 'LPnr'):
+        for k in range(0, 6):
             means.pop(0)
-        torun=range(0,4)
-    elif(which=='DPnr'):
-        for k in range(0,10):
-            means.pop(0)
-        for k in range(0,2):
+        for k in range(0, 6):
             means.pop(-1)
-        torun=range(0,2)
-    elif(which=='DPsl'):
-        for k in range(0,12):
+        torun = range(0, 2)
+    elif (which == 'DP'):
+        for k in range(0, 10):
+            means.pop(0)
+        torun = range(0, 4)
+    elif (which == 'DPnr'):
+        for k in range(0, 10):
+            means.pop(0)
+        for k in range(0, 2):
+            means.pop(-1)
+        torun = range(0, 2)
+    elif (which == 'DPsl'):
+        for k in range(0, 12):
             means.pop(0)
         torun = range(0, 2)
-    elif(which=='DPLPn'):
-        for k in range(0,6):
+    elif (which == 'DPLPn'):
+        for k in range(0, 6):
             means.pop(0)
-        for k in range(0,3):
+        for k in range(0, 3):
             means.pop(1)
-        for k in range(0,3):
+        for k in range(0, 3):
             means.pop(-1)
         torun = range(0, 2)
     elif (which == 'ssno'):
-        for k in range(0,11):
+        for k in range(0, 11):
             means.pop(-1)
-        torun=range(0,3)
-    elif (which == 'sssametogether'):
-        for k in range(0,3):
-            means.pop(0)
-        for k in range(0,8):
-            means.pop(-1)
-        torun=range(0,3)
-    elif (which == 'DPn'):
-        for k in range(0,10):
-            means.pop(0)
-        for k in range(0,3):
-            means.pop(-1)
-        torun=[0]
-    elif (which == 'DPr'):
-        for k in range(0,11):
-            means.pop(0)
-        for k in range(0,2):
-            means.pop(-1)
-        torun=[0]
-    elif (which == 'DPs'):
-        for k in range(0,12):
-            means.pop(0)
-        for k in range(0,1):
-            means.pop(-1)
-        torun=[0]
-    elif (which == 'DPl'):
-        for k in range(0,13):
-            means.pop(0)
-        torun=[0]
-    elif (which=='ssr'):
-        means=[['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
         torun = range(0, 3)
-    elif(which=='ssl'):
+    elif (which == 'sssametogether'):
+        for k in range(0, 3):
+            means.pop(0)
+        for k in range(0, 8):
+            means.pop(-1)
+        torun = range(0, 3)
+    elif (which == 'DPn'):
+        for k in range(0, 10):
+            means.pop(0)
+        for k in range(0, 3):
+            means.pop(-1)
+        torun = [0]
+    elif (which == 'DPr'):
+        for k in range(0, 11):
+            means.pop(0)
+        for k in range(0, 2):
+            means.pop(-1)
+        torun = [0]
+    elif (which == 'DPs'):
+        for k in range(0, 12):
+            means.pop(0)
+        for k in range(0, 1):
+            means.pop(-1)
+        torun = [0]
+    elif (which == 'DPl'):
+        for k in range(0, 13):
+            means.pop(0)
+        torun = [0]
+    elif (which == 'ssr'):
+        means = [['Nearest Neighbour+random'], ['NNs depth2+random'], ['Greedy+random']]
+        torun = range(0, 3)
+    elif (which == 'ssl'):
         means = [['Nearest Neighbour+leastout'], ['NNs depth2+leastout'], ['Greedy+leastout']]
         torun = range(0, 3)
     else:
@@ -138,23 +124,37 @@ def main():
     # initialise other results array with selected algorithm names
     medians = deepcopy(means)
     stdevs = deepcopy(means)
-    timemeans=deepcopy(means)
-    timedevs=deepcopy(means)
+    timemeans = deepcopy(means)
+    timedevs = deepcopy(means)
+    # open file with inputs
+    with open(inputname, mode="r") as infile:
+        infile_read = csv.reader(infile)
 
-    #get results
-    for i in range(mini,maxi+1):
-        all_sols=[]
-        all_times=[]
-        for j in range(0,len(means)):
-            all_sols.append([])
-            all_times.append([])
+        for i in range(mini,maxi+1):
+            # skip the read rows until the inputs of size i start
+            for row in infile_read:
+                if (row[0] == '{} constructs:'.format(i)):
+                    break
 
-        # open file with inputs
-        filename='inputs/100i_'+str(i)+'w_6p_6r_3c_4t.csv'
-        with open(filename,mode="r") as infile:
-            infile_read = csv.reader(infile)
-            for j in range(0,read):
-                w = nextw(infile_read)
+            # allocate space for storing outcomes and runtimes
+            all_sols = []
+            all_times = []
+            for j in range(0, len(means)):
+                all_sols.append([])
+                all_times.append([])
+
+            # read and process the specified number of inputs of size i
+            for j in range(0, read):
+                # get an input
+                w = []
+                onewell = [(), (), (), ()]
+                for row in infile_read:
+                    if (row[0] == 'end of input'):
+                        break
+                    else:
+                        for entry in range(0, len(row)):
+                            onewell[entry] = tuple(map(int, row[entry].split(',')))
+                        w.append(onewell.copy())
 
                 # generate required volumes (for testing). Values taken from a real instance of Start-Stop assembly
                 ss = []
@@ -175,16 +175,16 @@ def main():
 
                 for itr in torun:
                     fin = []
-                    if(means[itr][0][0:2]=='LP'):
-                        if(len(means[itr][0])==2):
-                            timer=time.time()
-                            lp_method(w,fin,reord=None, caps=caps, maxtime=1)
-                            timer=time.time()-timer
+                    if (means[itr][0][0:2] == 'LP'):
+                        if (len(means[itr][0]) == 2):
+                            timer = time.time()
+                            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
+                            timer = time.time() - timer
                         else:
                             timer = time.time()
-                            lp_method(w,fin,means[itr][0][3:],caps=caps, maxtime=1)
+                            lp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=1)
                             timer = time.time() - timer
-                    elif(means[itr][0][0:2]=='DP'):
+                    elif (means[itr][0][0:2] == 'DP'):
                         if (len(means[itr][0]) == 2):
                             timer = time.time()
                             dp_method(w, fin, reord=None, caps=caps)
@@ -194,7 +194,7 @@ def main():
                             dp_method(w, fin, means[itr][0][3:], caps=caps)
                             timer = time.time() - timer
                     else:
-                        #define reorderingy
+                        # define reorderingy
                         if (means[itr][0][-12:] == 'sametogether'):
                             reord = 'sametogether'
                         elif (means[itr][0][-6:] == 'random'):
@@ -205,86 +205,93 @@ def main():
                             reord = None
 
                         # get solution
-                        if(means[itr][0][:7]=='Nearest'):
+                        if (means[itr][0][:7] == 'Nearest'):
                             timer = time.time()
-                            nns(w,fin,1,reord,caps)
+                            nns(w, fin, 1, reord, caps)
                             timer = time.time() - timer
-                        elif(means[itr][0][:3]=='NNs'):
+                        elif (means[itr][0][:3] == 'NNs'):
                             timer = time.time()
-                            nns(w,fin,2,reord,caps)
+                            nns(w, fin, 2, reord, caps)
                             timer = time.time() - timer
                         elif (means[itr][0][:6] == 'Greedy'):
                             timer = time.time()
-                            greedy_tree(w, fin, 'optimistic+cap', reord,caps)
+                            greedy_tree(w, fin, 'optimistic+cap', reord, caps)
                             timer = time.time() - timer
 
                     # get route cost and record
-                    rc=route_cost(fin)
+                    rc = route_cost(fin)
                     all_sols[itr].append(rc)
                     all_times[itr].append(timer)
 
-        # get means/medians/standard devioations and record
-        for itr in range(0,len(means)):
-            means[itr].append(str(stats.mean(all_sols[itr])))
-            medians[itr].append(str(stats.median(all_sols[itr])))
-            stdevs[itr].append(str(stats.stdev(all_sols[itr])))
-            timemeans[itr].append(str(stats.mean(all_times[itr])))
-            timedevs[itr].append(str(stats.stdev(all_times[itr])))
+            # get means/medians/standard devioations and record
+            for itr in range(0, len(means)):
+                means[itr].append(str(stats.mean(all_sols[itr])))
+                medians[itr].append(str(stats.median(all_sols[itr])))
+                stdevs[itr].append(str(stats.stdev(all_sols[itr])))
+                timemeans[itr].append(str(stats.mean(all_times[itr])))
+                timedevs[itr].append(str(stats.stdev(all_times[itr])))
 
-        with open('progress/'+labelfile+'log.txt',mode="w+") as progress:
-            progress.write('Case for '+str(i)+' wells processed - '+str(maxi-i)+' to go')
+            if not (os.path.exists('progress')):
+                os.mkdir('progress')
+            with open('progress/' + labelfile + '_log.txt', mode="w+") as progress:
+                progress.write('Case for ' + str(i) + ' wells processed - ' + str(maxi - i) + ' to go')
 
     # record results in output files
     # open files
-    outmeans = open('results/'+labelfile+'means.csv', mode="w+",newline='')
+    outmeans = open('results/' + labelfile + '_means.csv', mode="w+", newline='')
     outmeans_w = csv.writer(outmeans, delimiter=',')
-    outmedians = open('results/'+labelfile+'medians.csv', mode="w+",newline='')
+    outmedians = open('results/' + labelfile + '_medians.csv', mode="w+", newline='')
     outmedians_w = csv.writer(outmedians, delimiter=',')
-    outstdevs = open('results/'+labelfile+'stdevs.csv', mode="w+",newline='')
+    outstdevs = open('results/' + labelfile + '_stdevs.csv', mode="w+", newline='')
     outstdevs_w = csv.writer(outstdevs, delimiter=',')
-    outtimemeans= open('times/'+labelfile+'timemeans.csv', mode="w+",newline='')
+    outtimemeans = open('times/' + labelfile + '_timemeans.csv', mode="w+", newline='')
     outtimemeans_w = csv.writer(outtimemeans, delimiter=',')
-    outtimedevs = open('times/' + labelfile + 'timedevs.csv', mode="w+", newline='')
+    outtimedevs = open('times/' + labelfile + '_timedevs.csv', mode="w+", newline='')
     outtimedevs_w = csv.writer(outtimedevs, delimiter=',')
 
-    #put column labels
+    # put column labels
     outmeans_w.writerow(columns)
     outmedians_w.writerow(columns)
     outstdevs_w.writerow(columns)
-    for itr in range(0,len(means)):
+    for itr in range(0, len(means)):
         outmeans_w.writerow(means[itr])
         outmedians_w.writerow(medians[itr])
         outstdevs_w.writerow(stdevs[itr])
         outtimemeans_w.writerow(timemeans[itr])
         outtimedevs_w.writerow(timedevs[itr])
+    return
 
 
-#------------------------------CREATING AND READING PREDEFINED INPUT LIST------------
-#read next input
-def nextw(infile_read):
-    w=[]
-    onewell=[(),(),(),()]
-    for row in infile_read:
-        if (row == ['end of input']):
-            break
-        else:
-            for entry in range(0,len(row)):
-                onewell[entry] = tuple(map(int,row[entry].split(',')))
-            w.append(onewell.copy())
-
-    return w
-
-
-#----------------------ARGUMENT PARSING----------------------
+#---------------------------ARGUMENT PARSING----------------------------
 def getArgs(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description="Parse arguments.")
     parser.add_argument("-w", "--which", help="Which alroithms to test.")
-    parser.add_argument("-r", "--read", type=int, help="How many inputs to read..")
+    parser.add_argument("-r", "--read", type=int, help="How many inputs to read.")
     parser.add_argument("-min", "--mini", type=int, help="From which number of wells to start.")
     parser.add_argument("-max", "--maxi", type=int, help="At which number of wells to finish.")
+    parser.add_argument("-n", "--name", type=str, help="Name of file containing the inputs.")
     arguments = parser.parse_args(args)
     return arguments
 
-# -------------------------------MAIN CALL-------------------------------
+
+# ---------------------------------MAIN---------------------------------
+# which specifies which algorithms are tested
+# read is how many inputs we read form each file
+# mini is the maximum number of wells we test
+# maxi is the maximum number of wells we test
+def main():
+    # get arguments from command line
+    arguments=getArgs()
+    which=getattr(arguments,'which')
+    read = getattr(arguments, 'read')
+    mini = getattr(arguments, 'mini')
+    maxi=getattr(arguments,'maxi')
+    inputname='inputs/'+getattr(arguments,'name')
+
+    test(inputname,which,read,mini,maxi)
+    return
+
+
+# -------------------------------MAIN CALL------------------------------
 if __name__ == "__main__":
     main()
