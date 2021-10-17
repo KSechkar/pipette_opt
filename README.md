@@ -8,10 +8,10 @@ The code is organised as a distributable Python 3 package.
 
 ## Running the test example from the publication
 
-In order to run the example considered in the publication, open the terminal, go to src/ppopt/test, and run the following command:
-* python testing.py -w LPnr -r 50 -min 2 -max 96 -n Start-Stop_Assembly_Random_Inputs.csv
+In order to run the example considered in the publication, open the terminal, go to /src folder, and run the following command:
+* python ppopt/test/testing.py -w LPnr -r 50 -min 2 -max 96 -n Start-Stop_Assembly_Random_Inputs.csv
 
-This means that for every input size 2&#8804;n&#8804;96, first 50 inputs of this size listed in the file _Start-Stop_Assembly_Random_Inputs.csv_ are considered. 
+This means that for every input size 2 &#8804; n &#8804; 96, first 50 inputs of this size listed in the file _Start-Stop_Assembly_Random_Inputs.csv_ are considered. 
 The LP-based algorithm is run for each of these 50 inputs, with and without randomly permuting the read order of DNA parts;
 then, the mean, the median and the standard deviation of the 50 optimised pipette tip consumptions are recorded.
 Please refer to the 'Algorithm testing' section of this manual for a detailed explanation of how the program testing.py works and what its arguments are.
@@ -21,7 +21,7 @@ rather than a laptop or a PC.
 
 ## Algorihm implementations
 There are three subpackages, each of which implements one of the three approaches to solving the tip consumption optimisation problem:
-* _lp_ - dividing the problem into a series of Linear Programming problems, and using the [GUROBI](https://www.gurobi.com/) optimiser to solve them. This algorithm is the one considered in the publication
+* _lp_ - dividing the problem into a series of Linear Programming problems, and using the [Google OR-tools CP-SAT](https://developers.google.com/optimization/cp/cp_solver) or [GUROBI](https://www.gurobi.com/) optimiser to solve them. This algorithm is the one considered in the publication
 * _statespace_ - searching a tree graph of states of the system (work in progress)
 * _dp_ - dynamic programming (work in progress)
 

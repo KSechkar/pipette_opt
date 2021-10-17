@@ -4,13 +4,13 @@
 # v0.1.10, 30.5.21
 
 from itertools import combinations,product
-import numpy as np
 
+# IMPORT GUROBI SOLVER  (comment out if not using)
 import gurobipy as gp
 from gurobipy import GRB
 
+# IMPORT OR-TOOLS (CP-SAT) SOLVER
 from ortools.linear_solver import pywraplp
-from ortools.init import pywrapinit
 
 
 #-------------------GUROBI: TSP SOLVER (NON-CAPACITATED PROBLEM)--------------------
@@ -99,10 +99,10 @@ def subtour(edges):
 #-----------------LP PROBLEM SOLVER INTERFACE (CAPACITATED PROBLEM)-------------------
 # call the relevant LP solver based on the input
 def lp_cap(D, cap, maxtime, solver):
-    if(solver==None or solver=='GUROBI'):
-        return gur_lp_cap(D,cap,maxtime)
+    if(solver=='GUROBI'):
+        return gur_lp_cap(D,cap,maxtime) #use GUROBI if specified
     else:
-        return or_lp_cap(D,cap,maxtime)
+        return or_lp_cap(D,cap,maxtime) #use OR-tools by default
 
 
 #-----------------GUROBI: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
@@ -196,7 +196,7 @@ def gur_recover(edges):
 #-----------------OR TOOLS/GLOP: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
 def or_lp_cap(D,cap,maxtime):
     # PART 0: technical OR TOOLS works
-    solver = pywraplp.Solver('GUROBI_Solve',pywraplp.Solver.SCIP_MIXED_INTEGER_PROGRAMMING)
+    solver = pywraplp.Solver('CP-SAT_Solve',pywraplp.Solver.SAT_INTEGER_PROGRAMMING)
 
     # PART 1: initial preparations
     # PART 1.1: copy capacity into a global variable to let other functions use it
@@ -230,93 +230,34 @@ def or_lp_cap(D,cap,maxtime):
     constrs['in']= {}
     constrs['out'] = {}
 
-    """
-    constrs['in'][1] = solver.Constraint(1, 1)
-    constrs['in'][1].SetCoefficient(vars[(0, 1)], 1)
-    constrs['in'][1].SetCoefficient(vars[(2, 1)], 1)
-    constrs['in'][1].SetCoefficient(vars[(0, 2)], 0)
-    constrs['in'][1].SetCoefficient(vars[(2, 0)], 0)
-    constrs['in'][1].SetCoefficient(vars[(1, 2)], 0)
-    constrs['in'][1].SetCoefficient(vars[(1, 0)], 0)
-    """
-    for k in range(1,len(nodes)):
-        #print('In\out node '+str(k))
-        constrs['in'][k]=solver.Constraint(1,1,'in'+str(k)) # each well node has at most 1 incoming edge
-        constrs['out'][k] = solver.Constraint(1, 1, 'out' + str(k))  # each well node has at most 1 outgoing edge
-        # set coefficients defining this constraint
-        for i,j in product(nodes,nodes):
-            if(i != j):
-                # set coefficient for incoming condition
-                if (j == k):
-                    #print('in '+str((i,j)))
-                    constrs['in'][k].SetCoefficient(vars[(i, j)], 1)
-                else:
-                    constrs['in'][k].SetCoefficient(vars[(i, j)], 0)
-                # set coefficient for outgoing condition
-                if (i == k):
-                    #print('out '+str((i,j)))
-                    constrs['out'][k].SetCoefficient(vars[(i, j)], 1)
-                else:
-                    constrs['out'][k].SetCoefficient(vars[(i, j)], 0)
-
+    for k in wellnodes:
+        # make list of well indices APART from that of the current well
+        if (k != nodes[-1]):
+            nodes_no_k=nodes[:k]+nodes[(k+1):]
+        else:
+            nodes_no_k = nodes[:k]
+        constrs['in'][k]=solver.Add(solver.Sum(vars[(i, k)] for i in nodes_no_k)==1) # each well node has at most 1 incoming edge
+        constrs['out'][k] = solver.Add(solver.Sum(vars[(k, j)] for j in nodes_no_k) == 1) # each well node has at most 1 outgoing edge
 
     # PART 2.2: eliminate cycles and chains that are too long
     # add the constraints on dummy variables
-    #c1=solver.Add(u[2]-u[1] >= 1-orcap*(1-vars[(1,2)]))
-    #c2 = solver.Add(u[1] - u[2] >= 1- orcap *(1- vars[(2, 1)]))
-    #"""
     if (orcap > 1.5):
         constrs['u'] = {}
         for k,l in product(wellnodes,wellnodes):
             if(k != l):
-                #print('{} - {}'.format(l,k))
-                constrs['u'][(k,l)]=solver.Constraint(1-orcap,np.infty,'u'+str((k,l)))
-                # set coefficients at u variables
-                for i in u.keys():
-                    if(i==l):
-                        #print('pos ' + str(i))
-                        constrs['u'][(k,l)].SetCoefficient(u[i], 1)
-                    elif(i==k):
-                        #print('neg ' + str(i))
-                        constrs['u'][(k,l)].SetCoefficient(u[i], -1)
-                    else:
-                        constrs['u'][(k,l)].SetCoefficient(u[i], 0)
-                # set coefficients at edge selection varibales
-                for i, j in product(wellnodes, wellnodes):
-                    if (i != j):
-                        # set coefficient for incoming condition
-                        if (i==k and j==l):
-                            #print('var '+str((i,j)))
-                            constrs['u'][(k,l)].SetCoefficient(vars[(i, j)], -orcap)
-                        else:
-                            constrs['u'][(k,l)].SetCoefficient(vars[(i, j)], 0)
-    #"""
+                constrs['u'][(k,l)]=solver.Add(u[l]-u[k]-orcap*vars[(k,l)] >= 1-orcap)
 
     # PART 2.3: all edges selected into chains must be zero-length
-    constrs['cost'] = {'sum': solver.Constraint(0, 0, 'sum of costs')}
-    # set coefficients at edge selection varibales
-    for i, j in product(nodes, nodes):
-        if (i != j):
-            constrs['cost']['sum'].SetCoefficient(vars[(i, j)], dist[(i,j)])
-    # set coefficients at u variables
-    for i in u.keys():
-        constrs['cost']['sum'].SetCoefficient(u[i], 0)
+    constrs['cost'] = {'sum': solver.Add(solver.Sum(vars[(i, j)] * dist[(i, j)] + vars[j, i] * dist[(j, i)]
+                                                    for i, j in combinations(nodes, 2)) == 0)}
 
     # PART 3: optimise the model
     # PART 3.1: define the objective
-    obj=solver.Objective()
-    # set coefficients at u variables
-    for i in u.keys():
-        obj.SetCoefficient(u[i], 0)
-    for i, j in product(nodes, nodes):
-        if(i!=j):
-            if (i==0):
-                obj.SetCoefficient(vars[(i, j)], 1)
-            else:
-                obj.SetCoefficient(vars[(i, j)], 0)
+    obj=solver.Minimize(solver.Sum(vars[(0,j)] for j in wellnodes))
 
     # PART 3.2: run the solver
-    solver.set_time_limit(maxtime)
+    solver.set_time_limit(maxtime*1000) # mind that OR tools define it in MILLISECONDS!
+    solver.num_search_workers=1 # restrict searching to 1 CPU core for safety and performance consistency
     status=solver.Solve()
 
     # PART 4: reconstruct the chains from m.vars (matrix X in literature)

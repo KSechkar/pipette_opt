@@ -210,7 +210,7 @@ def main():
     caps=capacities(reqvols,10,1.0)
 
     # Call the solver. Specify the heuristic reordering used by changing reord; specify maximum optimisation time by changing maxtime
-    lp_method(w, fin, reord=None, caps=caps, maxtime=1, solver='GUROBI')
+    lp_method(w, fin, reord=None, caps=caps, maxtime=1, solver='ORtools')
 
     # display the solution
     dispoper(fin)
