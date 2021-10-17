@@ -8,7 +8,7 @@ from tspy import TSP
 from tspy.solvers.utils import get_cost
 from tspy.solvers import TwoOpt_solver
 
-from .lp_solver import lp_cap
+from lp_solver import lp_cap
 
 # Nearest Neighbour tree search; the depth argument determines search depth
 def reorder_nns(origsubs, subsets, D, depth,caps):

@@ -3,12 +3,17 @@
 # By Kirill Sechkar
 # v0.1.10, 30.5.21
 
+from itertools import combinations,product
+import numpy as np
+
 import gurobipy as gp
 from gurobipy import GRB
-from itertools import combinations,product
+
+from ortools.linear_solver import pywraplp
+from ortools.init import pywrapinit
 
 
-#-------------------TSP SOLVER (NON-CAPACITATED PROBLEM)--------------------
+#-------------------GUROBI: TSP SOLVER (NON-CAPACITATED PROBLEM)--------------------
 # (for infinite capacities)
 #solver
 def tsp_lp_gurobi(D):
@@ -91,9 +96,18 @@ def subtour(edges):
     return cycle
 
 
-#-----------------LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
+#-----------------LP PROBLEM SOLVER INTERFACE (CAPACITATED PROBLEM)-------------------
+# call the relevant LP solver based on the input
+def lp_cap(D, cap, maxtime, solver):
+    if(solver==None or solver=='GUROBI'):
+        return gur_lp_cap(D,cap,maxtime)
+    else:
+        return or_lp_cap(D,cap,maxtime)
+
+
+#-----------------GUROBI: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
 #solver
-def lp_cap(D, cap, maxtime):
+def gur_lp_cap(D, cap, maxtime):
     # PART 0: technical GUROBI works
 
     # PART 0.1: set output flag to 0 to stop gurobi from printing out the log
@@ -154,11 +168,11 @@ def lp_cap(D, cap, maxtime):
     vals = m.getAttr('x', vars)
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
 
-    return recover(selected)  # get tour from selected edges
+    return gur_recover(selected)  # get tour from selected edges
 
 
 # recover the chains
-def recover(edges):
+def gur_recover(edges):
     chains=[] # make an empty list of 'chains'
 
     # go through all routes starting at the 0 ('depot') node
@@ -176,6 +190,172 @@ def recover(edges):
 
         # record the obtained chain into the output list
         chains.append(curchain.copy())
+    return chains
+
+
+#-----------------OR TOOLS/GLOP: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
+def or_lp_cap(D,cap,maxtime):
+    # PART 0: technical OR TOOLS works
+    solver = pywraplp.Solver('GUROBI_Solve',pywraplp.Solver.SCIP_MIXED_INTEGER_PROGRAMMING)
+
+    # PART 1: initial preparations
+    # PART 1.1: copy capacity into a global variable to let other functions use it
+    global orcap
+    orcap = cap
+
+    # PART 1.2: get the auxiliary array of node indices
+    nodes = []
+    for i in range(0, len(D)):
+        nodes.append(i)
+    wellnodes = nodes[1:len(nodes)]  # record only nodes matched to wells (i.e. except 0)
+
+    # PART 1.3: convert distance matrix into the dictionary format used by GUROBI
+    dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
+
+    # PART 1.4: create a boolean matrix indicating the trip (commonly known as X in literature)
+    # Note: the objective will be to minimise number of chosen edges leaving the 'depot', i.e. sum X_0,c for all c
+    vars = {}
+    for i,j in combinations(nodes, 2):
+        vars[(i, j)]=solver.IntVar(0, 1, 'x('+str(i)+','+str(j)+')')
+        vars[(j, i)] = solver.IntVar(0, 1, 'x(' + str(j) + ',' + str(i) + ')')
+    # create dummy variables needed for constraints
+    u = {}
+    for i in wellnodes:
+        u[i] = solver.IntVar(0, orcap - 1, 'u' + str(i))
+
+    # PART 2: add constraints
+
+    # PART 2.1: Limit number of incoming and outgoing edges for each node
+    constrs= {}
+    constrs['in']= {}
+    constrs['out'] = {}
+
+    """
+    constrs['in'][1] = solver.Constraint(1, 1)
+    constrs['in'][1].SetCoefficient(vars[(0, 1)], 1)
+    constrs['in'][1].SetCoefficient(vars[(2, 1)], 1)
+    constrs['in'][1].SetCoefficient(vars[(0, 2)], 0)
+    constrs['in'][1].SetCoefficient(vars[(2, 0)], 0)
+    constrs['in'][1].SetCoefficient(vars[(1, 2)], 0)
+    constrs['in'][1].SetCoefficient(vars[(1, 0)], 0)
+    """
+    for k in range(1,len(nodes)):
+        #print('In\out node '+str(k))
+        constrs['in'][k]=solver.Constraint(1,1,'in'+str(k)) # each well node has at most 1 incoming edge
+        constrs['out'][k] = solver.Constraint(1, 1, 'out' + str(k))  # each well node has at most 1 outgoing edge
+        # set coefficients defining this constraint
+        for i,j in product(nodes,nodes):
+            if(i != j):
+                # set coefficient for incoming condition
+                if (j == k):
+                    #print('in '+str((i,j)))
+                    constrs['in'][k].SetCoefficient(vars[(i, j)], 1)
+                else:
+                    constrs['in'][k].SetCoefficient(vars[(i, j)], 0)
+                # set coefficient for outgoing condition
+                if (i == k):
+                    #print('out '+str((i,j)))
+                    constrs['out'][k].SetCoefficient(vars[(i, j)], 1)
+                else:
+                    constrs['out'][k].SetCoefficient(vars[(i, j)], 0)
+
+
+    # PART 2.2: eliminate cycles and chains that are too long
+    # add the constraints on dummy variables
+    #c1=solver.Add(u[2]-u[1] >= 1-orcap*(1-vars[(1,2)]))
+    #c2 = solver.Add(u[1] - u[2] >= 1- orcap *(1- vars[(2, 1)]))
+    #"""
+    if (orcap > 1.5):
+        constrs['u'] = {}
+        for k,l in product(wellnodes,wellnodes):
+            if(k != l):
+                #print('{} - {}'.format(l,k))
+                constrs['u'][(k,l)]=solver.Constraint(1-orcap,np.infty,'u'+str((k,l)))
+                # set coefficients at u variables
+                for i in u.keys():
+                    if(i==l):
+                        #print('pos ' + str(i))
+                        constrs['u'][(k,l)].SetCoefficient(u[i], 1)
+                    elif(i==k):
+                        #print('neg ' + str(i))
+                        constrs['u'][(k,l)].SetCoefficient(u[i], -1)
+                    else:
+                        constrs['u'][(k,l)].SetCoefficient(u[i], 0)
+                # set coefficients at edge selection varibales
+                for i, j in product(wellnodes, wellnodes):
+                    if (i != j):
+                        # set coefficient for incoming condition
+                        if (i==k and j==l):
+                            #print('var '+str((i,j)))
+                            constrs['u'][(k,l)].SetCoefficient(vars[(i, j)], -orcap)
+                        else:
+                            constrs['u'][(k,l)].SetCoefficient(vars[(i, j)], 0)
+    #"""
+
+    # PART 2.3: all edges selected into chains must be zero-length
+    constrs['cost'] = {'sum': solver.Constraint(0, 0, 'sum of costs')}
+    # set coefficients at edge selection varibales
+    for i, j in product(nodes, nodes):
+        if (i != j):
+            constrs['cost']['sum'].SetCoefficient(vars[(i, j)], dist[(i,j)])
+    # set coefficients at u variables
+    for i in u.keys():
+        constrs['cost']['sum'].SetCoefficient(u[i], 0)
+
+    # PART 3: optimise the model
+    # PART 3.1: define the objective
+    obj=solver.Objective()
+    # set coefficients at u variables
+    for i in u.keys():
+        obj.SetCoefficient(u[i], 0)
+    for i, j in product(nodes, nodes):
+        if(i!=j):
+            if (i==0):
+                obj.SetCoefficient(vars[(i, j)], 1)
+            else:
+                obj.SetCoefficient(vars[(i, j)], 0)
+
+    # PART 3.2: run the solver
+    solver.set_time_limit(maxtime)
+    status=solver.Solve()
+
+    # PART 4: reconstruct the chains from m.vars (matrix X in literature)
+    selected=[]
+    for ij in vars.keys():
+        if(vars[ij].solution_value()==1):
+            selected.append(ij)
+
+    if status != solver.OPTIMAL:
+        print('The problem does not have an optimal solution!')
+        if status == solver.FEASIBLE:
+            print('A potentially suboptimal solution was found.')
+        else:
+            print('The solver could not solve the problem.')
+            exit(1)
+    else:
+        print('Optimal!')
+    return or_recover(selected)  # get tour from selected edges
+
+
+def or_recover(edges):
+    chains = []  # make an empty list of 'chains'
+
+    # go through all routes starting at the 0 ('depot') node
+    for edgeout in edges:
+        if(edgeout[0]==0):
+            curnode = edgeout[1]  # current node is the starting node of the route
+            curchain = []  # start recording the chain
+
+            # get the rest of the chain
+            while (curnode!=0):
+                for nextedge in edges:
+                    if(nextedge[0]==curnode):
+                        curchain.append(curnode)
+                        curnode=nextedge[1]
+                        break
+
+            # record the obtained chain into the output list
+            chains.append(curchain.copy())
     return chains
 
 
