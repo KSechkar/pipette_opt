@@ -266,15 +266,6 @@ def or_lp_cap(D,cap,maxtime):
         if(vars[ij].solution_value()==1):
             selected.append(ij)
 
-    if status != solver.OPTIMAL:
-        print('The problem does not have an optimal solution!')
-        if status == solver.FEASIBLE:
-            print('A potentially suboptimal solution was found.')
-        else:
-            print('The solver could not solve the problem.')
-            exit(1)
-    else:
-        print('Optimal!')
     return or_recover(selected)  # get tour from selected edges
 
 
