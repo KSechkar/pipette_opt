@@ -3,12 +3,17 @@
 # By Kirill Sechkar
 # v0.1.10, 30.5.21
 
-import gurobipy as gp
-from gurobipy import GRB
 from itertools import combinations,product
 
+# IMPORT GUROBI SOLVER  (comment out if not using)
+import gurobipy as gp
+from gurobipy import GRB
 
-#-------------------TSP SOLVER (NON-CAPACITATED PROBLEM)--------------------
+# IMPORT OR-TOOLS (CP-SAT) SOLVER
+from ortools.linear_solver import pywraplp
+
+
+#-------------------GUROBI: TSP SOLVER (NON-CAPACITATED PROBLEM)--------------------
 # (for infinite capacities)
 #solver
 def tsp_lp_gurobi(D):
@@ -91,9 +96,18 @@ def subtour(edges):
     return cycle
 
 
-#-----------------LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
+#-----------------LP PROBLEM SOLVER INTERFACE (CAPACITATED PROBLEM)-------------------
+# call the relevant LP solver based on the input
+def lp_cap(D, cap, maxtime, solver):
+    if(solver=='GUROBI'):
+        return gur_lp_cap(D,cap,maxtime) #use GUROBI if specified
+    else:
+        return or_lp_cap(D,cap,maxtime) #use OR-tools by default
+
+
+#-----------------GUROBI: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
 #solver
-def lp_cap(D, cap, maxtime):
+def gur_lp_cap(D, cap, maxtime):
     # PART 0: technical GUROBI works
 
     # PART 0.1: set output flag to 0 to stop gurobi from printing out the log
@@ -154,11 +168,11 @@ def lp_cap(D, cap, maxtime):
     vals = m.getAttr('x', vars)
     selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.5)  # get the edges selected as tour
 
-    return recover(selected)  # get tour from selected edges
+    return gur_recover(selected)  # get tour from selected edges
 
 
 # recover the chains
-def recover(edges):
+def gur_recover(edges):
     chains=[] # make an empty list of 'chains'
 
     # go through all routes starting at the 0 ('depot') node
@@ -176,6 +190,113 @@ def recover(edges):
 
         # record the obtained chain into the output list
         chains.append(curchain.copy())
+    return chains
+
+
+#-----------------OR TOOLS/GLOP: LP PROBLEM SOLVER (CAPACITATED PROBLEM)-------------------
+def or_lp_cap(D,cap,maxtime):
+    # PART 0: technical OR TOOLS works
+    solver = pywraplp.Solver('CP-SAT_Solve',pywraplp.Solver.SAT_INTEGER_PROGRAMMING)
+
+    # PART 1: initial preparations
+    # PART 1.1: copy capacity into a global variable to let other functions use it
+    global orcap
+    orcap = cap
+
+    # PART 1.2: get the auxiliary array of node indices
+    nodes = []
+    for i in range(0, len(D)):
+        nodes.append(i)
+    wellnodes = nodes[1:len(nodes)]  # record only nodes matched to wells (i.e. except 0)
+
+    # PART 1.3: convert distance matrix into the dictionary format used by GUROBI
+    dist = {(i, j): D[i][j] for i, j in product(nodes, nodes) if i != j}
+
+    # PART 1.4: create a boolean matrix indicating the trip (commonly known as X in literature)
+    # Note: the objective will be to minimise number of chosen edges leaving the 'depot', i.e. sum X_0,c for all c
+    vars = {}
+    for i,j in combinations(nodes, 2):
+        vars[(i, j)]=solver.IntVar(0, 1, 'x('+str(i)+','+str(j)+')')
+        vars[(j, i)] = solver.IntVar(0, 1, 'x(' + str(j) + ',' + str(i) + ')')
+    # create dummy variables needed for constraints
+    u = {}
+    for i in wellnodes:
+        u[i] = solver.IntVar(0, orcap - 1, 'u' + str(i))
+
+    # PART 2: add constraints
+
+    # PART 2.1: Limit number of incoming and outgoing edges for each node
+    constrs= {}
+    constrs['in']= {}
+    constrs['out'] = {}
+
+    for k in wellnodes:
+        # make list of well indices APART from that of the current well
+        if (k != nodes[-1]):
+            nodes_no_k=nodes[:k]+nodes[(k+1):]
+        else:
+            nodes_no_k = nodes[:k]
+        constrs['in'][k]=solver.Add(solver.Sum(vars[(i, k)] for i in nodes_no_k)==1) # each well node has at most 1 incoming edge
+        constrs['out'][k] = solver.Add(solver.Sum(vars[(k, j)] for j in nodes_no_k) == 1) # each well node has at most 1 outgoing edge
+
+    # PART 2.2: eliminate cycles and chains that are too long
+    # add the constraints on dummy variables
+    if (orcap > 1.5):
+        constrs['u'] = {}
+        for k,l in product(wellnodes,wellnodes):
+            if(k != l):
+                constrs['u'][(k,l)]=solver.Add(u[l]-u[k]-orcap*vars[(k,l)] >= 1-orcap)
+
+    # PART 2.3: all edges selected into chains must be zero-length
+    constrs['cost'] = {'sum': solver.Add(solver.Sum(vars[(i, j)] * dist[(i, j)] + vars[j, i] * dist[(j, i)]
+                                                    for i, j in combinations(nodes, 2)) == 0)}
+
+    # PART 3: optimise the model
+    # PART 3.1: define the objective
+    obj=solver.Minimize(solver.Sum(vars[(0,j)] for j in wellnodes))
+
+    # PART 3.2: run the solver
+    solver.set_time_limit(maxtime*1000) # mind that OR tools define it in MILLISECONDS!
+    solver.num_search_workers=1 # restrict searching to 1 CPU core for safety and performance consistency
+    status=solver.Solve()
+
+    # PART 4: reconstruct the chains from m.vars (matrix X in literature)
+    selected=[]
+    for ij in vars.keys():
+        if(vars[ij].solution_value()==1):
+            selected.append(ij)
+
+    if status != solver.OPTIMAL:
+        print('The problem does not have an optimal solution!')
+        if status == solver.FEASIBLE:
+            print('A potentially suboptimal solution was found.')
+        else:
+            print('The solver could not solve the problem.')
+            exit(1)
+    else:
+        print('Optimal!')
+    return or_recover(selected)  # get tour from selected edges
+
+
+def or_recover(edges):
+    chains = []  # make an empty list of 'chains'
+
+    # go through all routes starting at the 0 ('depot') node
+    for edgeout in edges:
+        if(edgeout[0]==0):
+            curnode = edgeout[1]  # current node is the starting node of the route
+            curchain = []  # start recording the chain
+
+            # get the rest of the chain
+            while (curnode!=0):
+                for nextedge in edges:
+                    if(nextedge[0]==curnode):
+                        curchain.append(curnode)
+                        curnode=nextedge[1]
+                        break
+
+            # record the obtained chain into the output list
+            chains.append(curchain.copy())
     return chains
 
 

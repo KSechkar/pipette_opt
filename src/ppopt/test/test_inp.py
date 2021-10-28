@@ -2,7 +2,7 @@
 # By Kirill Sechkar
 # v0.1.0, 1.6.21
 
-from input_generator import wgenerator
+from ppopt.test.input_generator import wgenerator
 import os,csv
 
 

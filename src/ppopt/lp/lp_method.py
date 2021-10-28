@@ -14,13 +14,13 @@ The resultant sequence of operations is recorded in a class Oper list fin.
 """
 
 from ppopt.auxil import *
-from .lp_reorder import reorder_nns, reorder_greedy
-from .lp_solver import *
+from ppopt.lp.lp_reorder import reorder_nns, reorder_greedy
+from ppopt.lp.lp_solver import *
 
 
 # ---------------------SOLVER FUNCTION----------------------------------
 # solves the problem
-def lp_method(w, fin, reord, caps, maxtime):
+def lp_method(w, fin, reord, caps, maxtime, solver=None):
     # PART 1: initial preparations
 
     # PART 1.1: get the subsets
@@ -62,15 +62,15 @@ def lp_method(w, fin, reord, caps, maxtime):
     for i in range(0, len(subsets)):
         #print(str(i)+' of '+str(len(subsets))+' parts')  # uncomment if need to track the progress
         # call single-subset LP solver for each subset
-        singlesub(subsets[i], D, fin, caps[subsets[i].part],maxtime)
+        singlesub(subsets[i], D, fin, caps[subsets[i].part],maxtime,solver)
 
     # PART 4: fix redundant tip changes
-    fix_redundant(fin,w,caps)
+    #fix_redundant(fin,w,caps)
 
 
 # ------------------SOLVER FOR ONE SUBSET-------------------------------
 # creates and solves an LP problem for
-def singlesub(subset, D, fin, cap,maxtime):
+def singlesub(subset, D, fin, cap, maxtime, solver):
     # PART 1: initial preparations
     # get length to avoid calling len too often
     sublen = len(subset.wells)
@@ -105,7 +105,7 @@ def singlesub(subset, D, fin, cap,maxtime):
         if (len(subD) == 2):
             chains = [[1]]
         else:
-            chains = lp_cap(subD, cap, maxtime)
+            chains = lp_cap(subD, cap, maxtime, solver)
 
         # record operations in fin
         for chain in chains:
@@ -210,7 +210,7 @@ def main():
     caps=capacities(reqvols,10,1.0)
 
     # Call the solver. Specify the heuristic reordering used by changing reord; specify maximum optimisation time by changing maxtime
-    lp_method(w, fin, reord='sametogether', caps=caps, maxtime=1)
+    lp_method(w, fin, reord=None, caps=caps, maxtime=1, solver='ORtools')
 
     # display the solution
     dispoper(fin)
@@ -225,6 +225,6 @@ if __name__ == "__main__":
     # import necessary modules for independent test running
     import numpy as np
     import time
-    from src.ppopt import wgenerator
+    from ppopt.test.input_generator import wgenerator
     main()
 

@@ -5,4 +5,6 @@ pyyaml==5.4.1
 pandas==0.25.1
 scipy==1.6.0
 tspy==0.1.1.1
+matplotlib==3.3.3
+ortools==9.1.9490
 
