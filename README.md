@@ -6,7 +6,7 @@ This repository contains the Python 3.8 code implementing the algorithms for opi
 
 The code is organised as a distributable Python 3 package.
 
-## Running the test example from the publication
+## Running test examples from the publication
 
 In order to run the example considered in the publication, open the terminal, go to /src folder, and run the following command:
 * python ppopt/test/testing.py -w LPnr -r 50 -min 2 -max 96 -n Start-Stop_Assembly_Random_Inputs.csv
@@ -18,6 +18,12 @@ Please refer to the 'Algorithm testing' section of this manual for a detailed ex
 
 Completing the test run for all 95 input sizes takes >24h, so it is recommended to launch the program on a server,
 rather than a laptop or a PC. 
+
+To test the outcomes for the [DNA-BOT](https://github.com/BASIC-DNA-ASSEMBLY/DNA-BOT) package for automating BASIC assembly, download the DNA-BOT package (version 14 July 2020), and follow the instructions to modify the code.
+Run 'dnabot_app.py', choosing 'storch_et_al_cons.csv' as the construct file and 'BIOLEGIO_BASIC_STD_SET_2_columns.csv' and 'part_plate_2_230419.csv' as part source files.
+
+To test the outcomes for the [MoClo automation](https://github.com/DAMPLAB/OT2-MoClo-Transformation-Ecoli) package, download the DNA-BOT package (version 18 November 2020), and follow the instructions to modify the code.
+Run 'moclo_transform_generator.py', choosing to make 'single' combinations, and selecting 'input-dna-map.csv' as the DNA plate map and 'combination-to-make-72.csv' as the list of DNA part combinations to assemble together. 
 
 ## Algorihm implementations
 There are three subpackages, each of which implements one of the three approaches to solving the tip consumption optimisation problem:
