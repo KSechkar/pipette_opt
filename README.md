@@ -4,7 +4,7 @@ Latest change: 9 October 2021
 
 This repository contains the Python 3.8 code implementing the algorithms for opitmising the pipette tip uptake during the distribution of DNA parts across the well array in which DNA assembly constructs are prepared. The detailed explanation of the LP algorithm can be found in the article 'A linear programming-based strategy to save pipette tips in automated DNA assembly' (K. Sechkar et al., 2021).
 
-The code is organised as a distributable Python 3 package to be downloaded and used as a complement to DNA automation pipelines for Opentrons OT-2. The relevant python files,  Currently, the [DNA-BOT](https://github.com/BASIC-DNA-ASSEMBLY/DNA-BOT) (BASIC assembly standard) and [OT2 Modular Cloning (MoClo) and Transformation in E.coli Workflow](https://github.com/DAMPLAB/OT2-MoClo-Transformation-Ecoli) (MoClo assembly standard) packages are supported.
+The code is organised as a distributable Python 3 package to be downloaded and used as a complement to DNA automation pipelines for Opentrons OT-2. The relevant python files contain both the API code and instructions for integrating our package with the supported automation pipelines (see below for details).  Currently, the [DNA-BOT](https://github.com/BASIC-DNA-ASSEMBLY/DNA-BOT) (BASIC assembly standard) and [OT2 Modular Cloning (MoClo) and Transformation in E.coli Workflow](https://github.com/DAMPLAB/OT2-MoClo-Transformation-Ecoli) (MoClo assembly standard) packages are supported.
 
 ## Running test examples from the publication
 
