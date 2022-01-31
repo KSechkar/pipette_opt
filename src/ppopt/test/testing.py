@@ -2,7 +2,8 @@
 # By Kirill Sechkar
 # v0.1.0, 1.6.21
 
-import csv
+import csv, openpyxl
+import pandas as pd
 import time
 import statistics as stats
 import argparse
@@ -17,12 +18,13 @@ from ppopt.auxil import *
 #----------------------------PERFORM TESTING----------------------------
 def test(inputname,which,read,mini,maxi):
     # make output directories if not present already
-    if not (os.path.exists('results')):
-        os.mkdir('results')
-    if not (os.path.exists('times')):
-        os.mkdir('times')
-    if not (os.path.exists('progress')):
-        os.mkdir('progress')
+    cwd = os.path.abspath(os.getcwd())
+    if not (os.path.exists(cwd + '/ppopt/test/' + 'results')):
+        os.mkdir(cwd + '/ppopt/test/' + 'results')
+    if not (os.path.exists(cwd + '/ppopt/test/' + 'times')):
+        os.mkdir(cwd + '/ppopt/test/' + 'times')
+    if not (os.path.exists(cwd + '/ppopt/test/' + 'progress')):
+        os.mkdir(cwd + '/ppopt/test/' + 'progress')
 
     # create a label to the filename describing the arguments
     labelfile = (inputname.split('/')[-1]).split('.')[0]
@@ -121,6 +123,14 @@ def test(inputname,which,read,mini,maxi):
         print('Error! Unspecified selection of algorithms')
         exit(1)
 
+    # row and column labels for raw data
+    rawrows = []
+    for i in range(0, len(means)):
+        rawrows.append(means[i][0])
+    rawcolumns = []
+    for i in range(0, read):
+        rawcolumns.append('input ' + str(i))
+
     # initialise other results array with selected algorithm names
     medians = deepcopy(means)
     stdevs = deepcopy(means)
@@ -178,11 +188,11 @@ def test(inputname,which,read,mini,maxi):
                     if (means[itr][0][0:2] == 'LP'):
                         if (len(means[itr][0]) == 2):
                             timer = time.time()
-                            lp_method(w, fin, reord=None, caps=caps, maxtime=1)
+                            lp_method(w, fin, reord=None, caps=caps, maxtime=1, solver='ORtools')
                             timer = time.time() - timer
                         else:
                             timer = time.time()
-                            lp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=1)
+                            lp_method(w, fin, means[itr][0][3:], caps=caps, maxtime=1, solver='ORtools')
                             timer = time.time() - timer
                     elif (means[itr][0][0:2] == 'DP'):
                         if (len(means[itr][0]) == 2):
@@ -230,23 +240,32 @@ def test(inputname,which,read,mini,maxi):
                 stdevs[itr].append(str(stats.stdev(all_sols[itr])))
                 timemeans[itr].append(str(stats.mean(all_times[itr])))
                 timedevs[itr].append(str(stats.stdev(all_times[itr])))
-
-            if not (os.path.exists('progress')):
-                os.mkdir('progress')
-            with open('progress/' + labelfile + '_log.txt', mode="w+") as progress:
+            if not (os.path.exists(cwd + '/ppopt/test/progress')):
+                os.mkdir(cwd + '/ppopt/test/progress')
+            with open(cwd + '/ppopt/test/progress/' + labelfile + '_log.txt', mode="w+") as progress:
                 progress.write('Case for ' + str(i) + ' wells processed - ' + str(maxi - i) + ' to go')
+
+            # record raw data
+            rawdf = pd.DataFrame(all_sols, columns=rawcolumns, index=rawrows, copy=True)
+            if(i!=mini):
+                book=openpyxl.load_workbook(cwd + '/ppopt/test/results/'+labelfile+'_raw.xlsx')
+            with pd.ExcelWriter(cwd + '/ppopt/test/results/'+labelfile+'_raw.xlsx') as rawxlsx:
+                if (i != mini):
+                    rawxlsx.book=book
+                rawdf.to_excel(rawxlsx, sheet_name='Case for ' + str(i) + ' wells')
+                rawxlsx.save()
 
     # record results in output files
     # open files
-    outmeans = open('results/' + labelfile + '_means.csv', mode="w+", newline='')
+    outmeans = open(cwd+'/ppopt/test/results/' + labelfile + '_means.csv', mode="w+", newline='')
     outmeans_w = csv.writer(outmeans, delimiter=',')
-    outmedians = open('results/' + labelfile + '_medians.csv', mode="w+", newline='')
+    outmedians = open(cwd+'/ppopt/test/results/' + labelfile + '_medians.csv', mode="w+", newline='')
     outmedians_w = csv.writer(outmedians, delimiter=',')
-    outstdevs = open('results/' + labelfile + '_stdevs.csv', mode="w+", newline='')
+    outstdevs = open(cwd+'/ppopt/test/results/' + labelfile + '_stdevs.csv', mode="w+", newline='')
     outstdevs_w = csv.writer(outstdevs, delimiter=',')
-    outtimemeans = open('times/' + labelfile + '_timemeans.csv', mode="w+", newline='')
+    outtimemeans = open(cwd+'/ppopt/test/times/' + labelfile + '_timemeans.csv', mode="w+", newline='')
     outtimemeans_w = csv.writer(outtimemeans, delimiter=',')
-    outtimedevs = open('times/' + labelfile + '_timedevs.csv', mode="w+", newline='')
+    outtimedevs = open(cwd+'/ppopt/test/times/' + labelfile + '_timedevs.csv', mode="w+", newline='')
     outtimedevs_w = csv.writer(outtimedevs, delimiter=',')
 
     # put column labels
@@ -259,6 +278,7 @@ def test(inputname,which,read,mini,maxi):
         outstdevs_w.writerow(stdevs[itr])
         outtimemeans_w.writerow(timemeans[itr])
         outtimedevs_w.writerow(timedevs[itr])
+
     return
 
 
@@ -282,11 +302,13 @@ def getArgs(args=sys.argv[1:]):
 def main():
     # get arguments from command line
     arguments=getArgs()
-    which=getattr(arguments,'which')
+    which = getattr(arguments,'which')
     read = getattr(arguments, 'read')
     mini = getattr(arguments, 'mini')
-    maxi=getattr(arguments,'maxi')
-    inputname='inputs/'+getattr(arguments,'name')
+    maxi = getattr(arguments,'maxi')
+
+    cwd = os.path.abspath(os.getcwd())
+    inputname=cwd+'/ppopt/test/inputs/'+getattr(arguments,'name')
 
     test(inputname,which,read,mini,maxi)
     return
