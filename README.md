@@ -6,6 +6,8 @@ This repository contains the Python 3.8 code implementing the algorithms for opi
 
 The code is organised as a distributable Python 3 package to be downloaded and used as a complement to DNA automation pipelines for Opentrons OT-2. The relevant python files contain both the API code and instructions for integrating our package with the supported automation pipelines (see below for details).  Currently, the [DNA-BOT](https://github.com/BASIC-DNA-ASSEMBLY/DNA-BOT) (BASIC assembly standard) and [OT2 Modular Cloning (MoClo) and Transformation in E.coli Workflow](https://github.com/DAMPLAB/OT2-MoClo-Transformation-Ecoli) (MoClo assembly standard) packages are supported.
 
+The required Python packages and their versions are given in _requirements.txt_.
+
 ## Running test examples from the publication
 
 In order to run the example considered in the publication, open the terminal, go to /src folder, and run the following command:
@@ -81,3 +83,8 @@ The program should be run from the command prompt with the following arguments
 
 Note: the publication only considers the 'no reordering' and 'random part reordering' options.
 None of the other reorderings have been tested and shown to consistently improve the algorithms' performance.
+
+## Runtime estimation
+By running _estimate_runtimes.py_, it is possible to use the simulation feature for the new Opentrons OT-2 API (version 2) to estimate the time that executing a program with Opentrons OT-2 would take. Please refer to the comments at the beginning of the script to select the value of WHICH_TEST that enables the simulation of the desired program.
+
+Please note that this script is intended for runtime estimation only, and is not compatible with the rest of the package, which uses the old Opentrons OT-2 API version 1. Thus, opentrons 4.7.0, and not opentrons 3.21.0, is required to run this program.
