@@ -85,6 +85,6 @@ Note: the publication only considers the 'no reordering' and 'random part reorde
 None of the other reorderings have been tested and shown to consistently improve the algorithms' performance.
 
 ## Runtime estimation
-By running _estimate_runtimes.py_, it is possible to use the simulation feature for the new Opentrons OT-2 API (version 2) to estimate the time that executing a program with Opentrons OT-2 would take. Please refer to the comments at the beginning of the script to select the value of WHICH_TEST that enables the simulation of the desired program.
+By running _estimate_runtimes.py_, it is possible to use the simulation feature for the new Opentrons OT-2 API (version 2) to estimate the time that executing an Opentrons OT-2 program would take. Please refer to the comments at the beginning of the script to select the value of WHICH_TEST that enables the simulation of the desired test case.
 
-Please note that this script is intended for runtime estimation only, and is not compatible with the rest of the package, which uses the old Opentrons OT-2 API version 1. Thus, opentrons 4.7.0, and not opentrons 3.21.0, is required to run this program.
+Please note that this script is intended for runtime estimation only, and is not compatible with the rest of the package, which uses the old Opentrons OT-2 API version 1. Thus, opentrons 4.7.0, and not opentrons 3.21.0, is required to run this script.
