@@ -3,7 +3,7 @@ numpy==1.17.2
 opentrons==3.21.1
 pyyaml==5.4.1
 pandas==0.25.1
-scipy==1.6.0
+scipy==1.18.0
 tspy==0.1.1.1
 matplotlib==3.3.3
 ortools==9.1.9490
